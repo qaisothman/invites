@@ -1,0 +1,9 @@
+# Local Postgres for anyone without one installed: docker compose up -d
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: nest_invites
+    ports:
+      - '5432:5432'
