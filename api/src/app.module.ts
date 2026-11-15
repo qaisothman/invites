@@ -15,6 +15,7 @@ import { onlyFor } from './common/quota';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AppConfig, validateEnv } from './config/env.validation';
 import { typeOrmOptions } from './database/typeorm.options';
+import { DevicesModule } from './devices/devices.module';
 import { HealthController } from './health/health.controller';
 import { InvitationsModule } from './invitations/invitations.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -61,6 +62,7 @@ import { UsersModule } from './users/users.module';
     MetricsModule,
     AuthModule,
     UsersModule,
+    DevicesModule,
     NotificationsModule,
     InvitationsModule,
   ],

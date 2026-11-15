@@ -100,7 +100,7 @@ describe('Invitations (e2e)', () => {
     await http().get(`/invitations/${body.id}`).set(auth(alice)).expect(200);
   });
 
-  it('lets only the invitee answer and the inviter cancel', async () => {
+  it('lets only the invitee answer, the inviter cancel and the owner remove a phone', async () => {
     const carol = await registerUser(app);
     const { body } = await invite(alice, bob).expect(201);
     for (const action of ['accept', 'decline', 'cancel'])
@@ -124,6 +124,20 @@ describe('Invitations (e2e)', () => {
       .post(`/invitations/${body.id}/accept`)
       .set(auth(bob))
       .expect(200);
+
+    const phone = await http()
+      .post('/devices')
+      .set(auth(bob))
+      .send({ expoPushToken: 'ExponentPushToken[bob-phone]', platform: 'ios' })
+      .expect(201);
+    await http()
+      .delete(`/devices/${(phone.body as { id: string }).id}`)
+      .set(auth(carol))
+      .expect(404);
+    await http()
+      .delete(`/devices/${(phone.body as { id: string }).id}`)
+      .set(auth(bob))
+      .expect(204);
   });
 
   it('records when the invitee first opens it, and counts the push as seen', async () => {
