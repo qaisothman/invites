@@ -7,6 +7,32 @@ const base = {
 };
 
 describe('validateEnv', () => {
+  it('reads true/1 and false/0 as booleans', () => {
+    expect(validateEnv({ ...base, WORKERS_ENABLED: '1' }).WORKERS_ENABLED).toBe(
+      true,
+    );
+    expect(
+      validateEnv({ ...base, WORKERS_ENABLED: 'false' }).WORKERS_ENABLED,
+    ).toBe(false);
+    expect(validateEnv({ ...base, LOG_REQUESTS: '0' }).LOG_REQUESTS).toBe(
+      false,
+    );
+  });
+
+  it('refuses any other boolean spelling instead of reading it as false', () => {
+    for (const value of ['yes', 'TRUE', 'on', ''])
+      expect(() => validateEnv({ ...base, WORKERS_ENABLED: value })).toThrow(
+        /WORKERS_ENABLED/,
+      );
+  });
+
+  it('defaults to logging requests and trusting no proxy', () => {
+    expect(validateEnv(base)).toMatchObject({
+      LOG_REQUESTS: true,
+      TRUST_PROXY_HOPS: 0,
+    });
+  });
+
   describe('TRUST_PROXY_HOPS in production', () => {
     const production = {
       ...base,

@@ -8,8 +8,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { Session } from './session.entity';
 
-// @Global so the guards registered in AppModule can inject JwtService
-// without every feature module importing AuthModule.
+// @Global so the guards registered in AppModule can inject JwtService, and
+// the worker AuthService, without every module importing AuthModule.
 @Global()
 @Module({
   imports: [
@@ -25,6 +25,6 @@ import { Session } from './session.entity';
   ],
   controllers: [AuthController],
   providers: [AuthService],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

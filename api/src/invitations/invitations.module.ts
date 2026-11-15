@@ -9,5 +9,6 @@ import { InvitationsService } from './invitations.service';
   imports: [TypeOrmModule.forFeature([Invitation]), NotificationsModule],
   controllers: [InvitationsController],
   providers: [InvitationsService],
+  exports: [InvitationsService],
 })
 export class InvitationsModule {}

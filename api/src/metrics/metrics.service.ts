@@ -40,6 +40,13 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  readonly receipts = new Counter({
+    name: 'push_receipts_total',
+    help: 'Push receipts by outcome',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  });
+
   readonly deviceReports = new Counter({
     name: 'device_reports_total',
     help: 'Phones reporting in, by platform, notifications state and app version',

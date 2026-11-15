@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { AuthService } from '../src/auth/auth.service';
 import {
   auth,
   createTestApp,
@@ -214,6 +215,21 @@ describe('Auth (e2e)', () => {
       ]);
       expect(await live(v.id)).toBe(0);
     }
+  });
+
+  it('deletes sessions past their expiry, and only those', async () => {
+    const u = await registerUser(app);
+    await refresh(u.refreshToken).expect(200);
+    await app
+      .get(DataSource)
+      .query(
+        `UPDATE sessions SET expires_at = now() - interval '1 second' WHERE revoked_at IS NOT NULL`,
+      );
+    expect(await app.get(AuthService).pruneExpiredSessions()).toBe(1);
+    const [{ n }] = (await app
+      .get(DataSource)
+      .query('SELECT count(*)::int AS n FROM sessions')) as { n: number }[];
+    expect(n).toBe(1);
   });
 
   it('logs out by revoking the refresh token', async () => {

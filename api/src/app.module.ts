@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -21,6 +22,7 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UsersModule } from './users/users.module';
+import { WorkersModule } from './workers/workers.module';
 
 @Module({
   imports: [
@@ -59,12 +61,14 @@ import { UsersModule } from './users/users.module';
         ],
       }),
     }),
+    ScheduleModule.forRoot(),
     MetricsModule,
     AuthModule,
     UsersModule,
     DevicesModule,
     NotificationsModule,
     InvitationsModule,
+    WorkersModule,
   ],
   controllers: [HealthController],
   providers: [

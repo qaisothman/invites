@@ -9,6 +9,7 @@ import type {
   PushMessage,
   PushResult,
 } from '../src/notifications/providers/push-sender';
+import { ReceiptPoller } from '../src/notifications/receipts';
 import {
   addDevice,
   auth,
@@ -39,6 +40,7 @@ describe('Notification delivery (e2e)', () => {
   const http = () => request(app.getHttpServer());
   const db = () => app.get(DataSource);
   const dispatch = () => app.get(OutboxDispatcher).runOnce();
+  const receipts = () => app.get(ReceiptPoller).runOnce();
   // How many times a metric has counted an outcome since the app started.
   const counted = async (metric: 'dispatched', outcome: string) =>
     (await app.get(MetricsService)[metric].get()).values.find(
@@ -105,6 +107,12 @@ describe('Notification delivery (e2e)', () => {
       { status: 'ok', receipt_status: 'pending' },
       { status: 'ok', receipt_status: 'pending' },
     ]);
+
+    await receipts();
+    const after = (await db().query(
+      `SELECT receipt_status FROM push_tickets`,
+    )) as { receipt_status: string }[];
+    expect(after.every((t) => t.receipt_status === 'ok')).toBe(true);
   });
 
   it('retries a provider outage with backoff, then succeeds', async () => {
@@ -273,6 +281,120 @@ describe('Notification delivery (e2e)', () => {
     expect(await notif()).toMatchObject({ status: 'sending', attempts: 2 });
     // Nor counts an outcome it didn't record.
     expect(await counted('dispatched', 'failed')).toBe(failedBefore);
+  });
+
+  it('finds dead tokens from receipts when the send looked fine', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'receipt_error');
+    await invite();
+    await dispatch();
+    expect((await notif()).status).toBe('sent');
+    await receipts();
+    expect((await notif()).status).toBe('failed');
+    const [d] = (await db().query(`SELECT disabled_at FROM devices`)) as {
+      disabled_at: Date | null;
+    }[];
+    expect(d.disabled_at).not.toBeNull();
+  });
+
+  it('keeps a phone enabled that registered again before its receipt came', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'receipt_error');
+    await invite();
+    await dispatch();
+    // Reinstalled within the 15 minutes before the receipt: same token.
+    await db().query(
+      `UPDATE push_tickets SET created_at = now() - interval '15 minutes'`,
+    );
+    await addDevice(app, bob, token);
+    await receipts();
+    const [d] = (await db().query(`SELECT disabled_at FROM devices`)) as {
+      disabled_at: Date | null;
+    }[];
+    expect(d.disabled_at).toBeNull();
+  });
+
+  it('re-queues a push that Apple or Google rate-limited', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'receipt_rate_limited');
+    await invite();
+    await dispatch();
+    await receipts();
+    const n = await notif();
+    expect(n).toMatchObject({
+      status: 'pending',
+      last_error: 'receipt: MessageRateExceeded',
+    });
+    expect(new Date(n.next_attempt_at).getTime()).toBeGreaterThan(Date.now());
+    const [d] = (await db().query(`SELECT disabled_at FROM devices`)) as {
+      disabled_at: Date | null;
+    }[];
+    expect(d.disabled_at).toBeNull(); // the token is fine; only the rate was too high
+
+    push.setBehaviour(token, 'ok');
+    await db().query(`UPDATE notifications SET next_attempt_at = now()`);
+    await dispatch();
+    expect((await notif()).status).toBe('sent');
+  });
+
+  it('re-queues rate-limited receipts past the attempt limit, for 24 hours', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'receipt_rate_limited');
+    await invite();
+    await dispatch();
+    // The send that got through was the last of its transport attempts.
+    await db().query(`UPDATE notifications SET transport_failures = 7`);
+    await receipts();
+    expect((await notif()).status).toBe('pending');
+
+    await db().query(
+      `UPDATE notifications SET created_at = now() - interval '25 hours', next_attempt_at = now()`,
+    );
+    await dispatch();
+    await receipts();
+    expect((await notif()).status).toBe('failed');
+  });
+
+  it('keeps every transport attempt after rate-limited receipts', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'receipt_rate_limited');
+    await invite();
+    for (let i = 0; i < 9; i++) {
+      await dispatch();
+      await receipts();
+      await db().query(`UPDATE notifications SET next_attempt_at = now()`);
+    }
+    expect(await notif()).toMatchObject({
+      status: 'pending',
+      attempts: 9,
+      transport_failures: 0,
+    });
+    push.setBehaviour(token, 'flaky');
+    await dispatch();
+    expect(await notif()).toMatchObject({
+      status: 'pending',
+      transport_failures: 1,
+    });
+  });
+
+  it('fails a push whose latest receipt is final, after an earlier one was rate-limited', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'receipt_rate_limited');
+    await invite();
+    await dispatch();
+    await receipts();
+    expect((await notif()).status).toBe('pending');
+
+    // The resend's receipt is final: the first send's rate limit no longer
+    // counts.
+    push.setBehaviour(token, 'receipt_error');
+    await db().query(`UPDATE notifications SET next_attempt_at = now()`);
+    await dispatch();
+    await receipts();
+    expect(await notif()).toMatchObject({
+      status: 'failed',
+      last_error: 'all receipts rejected',
+    });
   });
 
   it('treats an Android phone silent for 90 days as unreachable', async () => {

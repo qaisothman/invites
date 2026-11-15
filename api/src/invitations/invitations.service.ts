@@ -55,8 +55,8 @@ export class InvitationsService {
           message: 'That member does not exist',
         });
 
-      // An invitation past its expiry that is still marked pending doesn't
-      // block a new one: answering it already says it has expired.
+      // An invitation past its expiry that the sweeper hasn't marked yet
+      // doesn't block a new one: answering it already says it has expired.
       await m.query(
         `UPDATE invitations SET status = 'expired', updated_at = now()
          WHERE inviter_id = $1 AND invitee_id = $2 AND status = 'pending' AND expires_at <= now()`,
@@ -226,6 +226,18 @@ export class InvitationsService {
       }
     }
     return toInvitationView(await this.load(id));
+  }
+
+  // Runs on the worker every few minutes.
+  async expireDue(): Promise<number> {
+    const rows = rowsOf(
+      await this.db.query(
+        `UPDATE invitations SET status = 'expired', updated_at = now()
+         WHERE status = 'pending' AND expires_at <= now()
+         RETURNING id`,
+      ),
+    );
+    return rows.length;
   }
 
   private async load(id: string) {

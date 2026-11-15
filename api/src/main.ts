@@ -14,8 +14,8 @@ async function bootstrap() {
   // far as TRUST_PROXY_HOPS proxies vouch for it, else the socket address.
   app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
   app.use(helmet());
-  // Lets in-flight work and the database pool close cleanly on SIGTERM
-  // instead of being cut off mid-job during a deploy.
+  // Lets the workers and the database pool close cleanly on SIGTERM instead
+  // of being cut off mid-batch during a deploy.
   app.enableShutdownHooks();
 
   if (config.get('NODE_ENV', { infer: true }) !== 'production') {

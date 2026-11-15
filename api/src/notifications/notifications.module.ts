@@ -10,6 +10,7 @@ import { NotificationsService } from './notifications.service';
 import { ExpoPushSender } from './providers/expo-push.sender';
 import { FakePushSender } from './providers/fake-push.sender';
 import { PUSH_SENDER } from './providers/push-sender';
+import { ReceiptPoller } from './receipts';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Notification]), DevicesModule],
@@ -17,6 +18,7 @@ import { PUSH_SENDER } from './providers/push-sender';
   providers: [
     NotificationsService,
     OutboxDispatcher,
+    ReceiptPoller,
     ExpoPushSender,
     FakePushSender,
     // Which implementation backs each interface is decided once, here, from
@@ -32,6 +34,6 @@ import { PUSH_SENDER } from './providers/push-sender';
         config.get('PUSH_DRIVER', { infer: true }) === 'fake' ? fake : expo,
     },
   ],
-  exports: [NotificationsService],
+  exports: [NotificationsService, OutboxDispatcher, ReceiptPoller],
 })
 export class NotificationsModule {}

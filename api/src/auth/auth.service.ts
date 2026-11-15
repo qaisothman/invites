@@ -188,6 +188,17 @@ export class AuthService implements OnModuleInit {
     });
   }
 
+  // Expired rows can't be refreshed any more; without this the table gains
+  // a row per sign-in and per refresh, forever.
+  async pruneExpiredSessions(): Promise<number> {
+    const rows = rowsOf(
+      await this.db.query(
+        'DELETE FROM sessions WHERE expires_at < now() RETURNING id',
+      ),
+    );
+    return rows.length;
+  }
+
   private async issue(
     user: User,
     familyId: string,
