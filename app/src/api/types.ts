@@ -50,7 +50,7 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
-/** Whether a phone can show our pushes. */
+/** Whether a phone can show our pushes (see src/push/push.ts). */
 export type NotificationsState = 'allowed' | 'off' | 'not_asked';
 
 export interface Device {
@@ -62,6 +62,8 @@ export interface Device {
 // The `data` the server puts on every push (see api/src/notifications).
 export interface PushData {
   notificationId: string;
+  /** Signed for this notification; confirms delivery without a session. */
+  ackToken?: string;
   type: 'invitation.received' | 'invitation.accepted';
   invitationId: string;
   url: string;

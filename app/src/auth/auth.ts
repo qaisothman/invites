@@ -1,6 +1,7 @@
 import { api } from '@/api';
 import { keys, queryClient } from '@/api/queries';
 import type { AuthResponse } from '@/api/types';
+import { unregisterDevice } from '@/push/push';
 
 import { session } from './session';
 
@@ -32,11 +33,13 @@ export async function register(input: {
 }
 
 /**
- * Best effort, in this order: revoke the refresh token on the server, then
- * forget the session locally. The local part always happens, even offline.
+ * Best effort, in this order: stop pushes to this phone (needs a valid
+ * access token), revoke the refresh token on the server, then forget the
+ * session locally. The local part always happens, even offline.
  */
 export async function signOut() {
   const refreshToken = session.getRefreshToken();
+  await unregisterDevice().catch(() => undefined);
   if (refreshToken) await api.logout(refreshToken).catch(() => undefined);
   await session.clear();
 }

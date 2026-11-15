@@ -68,6 +68,10 @@ export const api = {
   // Delivery receipts for pushes. See src/push for when each is sent.
   notificationDelivered: (id: string) =>
     request<void>('POST', `/notifications/${id}/delivered`),
+  // The same confirmation with the token the push carried: no session needed,
+  // so it works from a background task without refreshing tokens.
+  notificationDeliveredSigned: (id: string, token: string) =>
+    publicRequest<void>('POST', `/notifications/${id}/ack`, { token }),
   notificationOpened: (id: string) =>
     request<void>('POST', `/notifications/${id}/opened`),
 };
