@@ -1,7 +1,7 @@
 # Local development:   docker compose up -d --wait db
 # The whole system:    docker compose --profile stack up --build
 # Ports taken locally? Put DB_PORT=5433 and API_PORT=3300 in .env next to this
-# file, or in front of the command.
+# file (docs/00-run-and-test-locally.md), or in front of the command.
 #
 # The stack mirrors how it would run in production: one image run as three
 # roles (migrate once, then API and worker side by side), plus Prometheus
