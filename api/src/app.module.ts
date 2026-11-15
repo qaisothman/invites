@@ -16,7 +16,9 @@ import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AppConfig, validateEnv } from './config/env.validation';
 import { typeOrmOptions } from './database/typeorm.options';
 import { HealthController } from './health/health.controller';
+import { InvitationsModule } from './invitations/invitations.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -47,12 +49,20 @@ import { UsersModule } from './users/users.module';
             limit: config.get('AUTH_PER_MINUTE', { infer: true }),
             skipIf: onlyFor('auth'),
           },
+          {
+            name: 'invites',
+            ttl: 3_600_000,
+            limit: config.get('INVITES_PER_HOUR', { infer: true }),
+            skipIf: onlyFor('invites'),
+          },
         ],
       }),
     }),
     MetricsModule,
     AuthModule,
     UsersModule,
+    NotificationsModule,
+    InvitationsModule,
   ],
   controllers: [HealthController],
   providers: [

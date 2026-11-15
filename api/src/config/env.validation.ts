@@ -98,6 +98,20 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   AUTH_PER_MINUTE: number = 10;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  INVITES_PER_HOUR: number = 30;
+
+  // ---- Invitations
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  INVITE_TTL_DAYS: number = 14;
+
+  @IsString()
+  APP_LINK_BASE: string = 'https://invites.example.com';
 }
 
 export function validateEnv(config: Record<string, unknown>) {

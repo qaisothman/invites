@@ -10,5 +10,6 @@ Object.assign(process.env, {
   PASSWORD_HASH_COST: '10', // fast hashing in tests; production uses 15
   THROTTLE_PER_MINUTE: '100000',
   AUTH_PER_MINUTE: '100000',
+  INVITES_PER_HOUR: '100000',
   LOG_REQUESTS: 'false',
 });
