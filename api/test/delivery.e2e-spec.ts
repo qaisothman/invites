@@ -16,6 +16,7 @@ import {
   addDevice,
   auth,
   createTestApp,
+  makeAdmin,
   registerUser,
   resetDatabase,
   TestApp,
@@ -827,6 +828,96 @@ describe('Notification delivery (e2e)', () => {
     expect(u.last_invitation_email_at).toBeNull();
   });
 
+  it('reports what happened after the email in the funnel', async () => {
+    const { body } = await invite();
+    await dispatch();
+    await emails();
+    await http().get(`/invitations/${body.id}`).set(auth(bob)).expect(200);
+    await http()
+      .post(`/invitations/${body.id}/accept`)
+      .set(auth(bob))
+      .expect(200);
+    const admin = await makeAdmin(app, await registerUser(app));
+    const from = new Date(Date.now() - 3_600_000).toISOString();
+    const to = new Date(Date.now() + 3_600_000).toISOString();
+    const funnel = await http()
+      .get(`/admin/funnel/invitations?from=${from}&to=${to}`)
+      .set(auth(admin))
+      .expect(200);
+    // No push could reach Bob; the email did. Seeing it in the app counts as
+    // opened, not delivered, then he accepted.
+    expect(funnel.body.steps.map((x: { count: number }) => x.count)).toEqual([
+      1, 0, 0, 1, 1,
+    ]);
+    expect(funnel.body.secondsToDelivery).toEqual({ p50: null, p95: null });
+    expect(funnel.body.email).toEqual({
+      sent: 1,
+      optedOut: 0,
+      openedAfter: 1,
+      acceptedAfter: 1,
+    });
+  });
+
+  it('counts as delivered only pushes a phone confirmed', async () => {
+    const carol = await registerUser(app, { displayName: 'Carol' });
+    const dave = await registerUser(app, { displayName: 'Dave' });
+    await addDevice(app, bob);
+    const davePhone = await addDevice(app, dave);
+    const to = async (u: TestUser) =>
+      (
+        await http()
+          .post('/invitations')
+          .set(auth(alice))
+          .send({ inviteeId: u.id })
+          .expect(201)
+      ).body as { id: string };
+    const [forBob, forCarol] = [await to(bob), await to(carol)];
+    await to(dave);
+    await dispatch();
+    // Bob's push is never confirmed, but he sees it in the app; Carol has no
+    // phone and sees it in the app; Dave's phone confirms his push.
+    await http().get(`/invitations/${forBob.id}`).set(auth(bob)).expect(200);
+    await http()
+      .get(`/invitations/${forCarol.id}`)
+      .set(auth(carol))
+      .expect(200);
+    await ack(push.sent.find((m) => m.to === davePhone) as PushMessage);
+
+    const admin = await makeAdmin(app, await registerUser(app));
+    const from = new Date(Date.now() - 3_600_000).toISOString();
+    const until = new Date(Date.now() + 3_600_000).toISOString();
+    const funnel = await http()
+      .get(`/admin/funnel/invitations?from=${from}&to=${until}`)
+      .set(auth(admin))
+      .expect(200);
+    expect(funnel.body.steps).toEqual([
+      { step: 'created', count: 3, previous: null, fromPrevious: null },
+      { step: 'push_sent', count: 2, previous: 'created', fromPrevious: 0.667 },
+      { step: 'delivered', count: 1, previous: 'push_sent', fromPrevious: 0.5 },
+      { step: 'opened', count: 2, previous: 'created', fromPrevious: 0.667 },
+      { step: 'accepted', count: 0, previous: 'opened', fromPrevious: 0 },
+    ]);
+    expect(funnel.body.secondsToDelivery.p50).toEqual(expect.any(Number));
+  });
+
+  it('counts a push withdrawn before it went out apart from failed pushes', async () => {
+    await addDevice(app, bob);
+    const { body } = await invite();
+    await http()
+      .post(`/invitations/${body.id}/cancel`)
+      .set(auth(alice))
+      .expect(200);
+    await dispatch();
+    const admin = await makeAdmin(app, await registerUser(app));
+    const from = new Date(Date.now() - 3_600_000).toISOString();
+    const to = new Date(Date.now() + 3_600_000).toISOString();
+    const funnel = await http()
+      .get(`/admin/funnel/invitations?from=${from}&to=${to}`)
+      .set(auth(admin))
+      .expect(200);
+    expect(funnel.body.dropOff).toMatchObject({ withdrawn: 1, pushFailed: 0 });
+  });
+
   it('sends each notification exactly once with four workers racing', async () => {
     const invitees: TestUser[] = [];
     for (let i = 0; i < 40; i++) {
@@ -882,5 +973,41 @@ describe('Notification delivery (e2e)', () => {
     expect(await app.get(OutboxDispatcher).reclaimStale()).toBe(1);
     expect(await dispatch()).toBe(1);
     expect((await notif()).status).toBe('sent');
+  });
+
+  it('reports the funnel and traces a user for support', async () => {
+    await addDevice(app, bob);
+    const { body } = await invite();
+    await dispatch();
+    await http()
+      .post(`/notifications/${(await notif()).id}/delivered`)
+      .set(auth(bob))
+      .expect(204);
+    await http().get(`/invitations/${body.id}`).set(auth(bob)).expect(200);
+    await http()
+      .post(`/invitations/${body.id}/accept`)
+      .set(auth(bob))
+      .expect(200);
+
+    const admin = await makeAdmin(app, await registerUser(app));
+    const from = new Date(Date.now() - 3_600_000).toISOString();
+    const to = new Date(Date.now() + 3_600_000).toISOString();
+    const funnel = await http()
+      .get(`/admin/funnel/invitations?from=${from}&to=${to}`)
+      .set(auth(admin))
+      .expect(200);
+    expect(funnel.body.steps.map((s: { count: number }) => s.count)).toEqual([
+      1, 1, 1, 1, 1,
+    ]);
+
+    const trace = await http()
+      .get(`/admin/users/${bob.id}/notification-trace`)
+      .set(auth(admin))
+      .expect(200);
+    expect(trace.body.devices).toHaveLength(1);
+    expect(trace.body.notifications[0].attempts[0]).toMatchObject({
+      ticket: 'ok',
+      platform: 'ios',
+    });
   });
 });

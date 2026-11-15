@@ -9,7 +9,10 @@ import { EmailLinks } from './email-links';
 import { EmailsController } from './emails.controller';
 import { InvitationEmailer } from './invitation-emails';
 import { Notification } from './notification.entity';
-import { NotificationsController } from './notifications.controller';
+import {
+  NotificationsAdminController,
+  NotificationsController,
+} from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { ExpoPushSender } from './providers/expo-push.sender';
 import { FakePushSender } from './providers/fake-push.sender';
@@ -19,11 +22,19 @@ import {
   FakeEmailSender,
   LogEmailSender,
 } from './providers/email-sender';
+import { PushTicket } from './push-ticket.entity';
 import { ReceiptPoller } from './receipts';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification]), DevicesModule],
-  controllers: [NotificationsController, EmailsController],
+  imports: [
+    TypeOrmModule.forFeature([Notification, PushTicket]),
+    DevicesModule,
+  ],
+  controllers: [
+    NotificationsController,
+    NotificationsAdminController,
+    EmailsController,
+  ],
   providers: [
     NotificationsService,
     AckTokens,

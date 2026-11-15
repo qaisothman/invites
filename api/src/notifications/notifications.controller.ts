@@ -12,8 +12,9 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { Public } from '../auth/decorators';
+import { Public, Roles } from '../auth/decorators';
 import { PageQuery } from '../common/pagination';
+import { UserRole } from '../users/user.entity';
 import { IsString, Length } from 'class-validator';
 import { AckTokens } from './ack-tokens';
 import { NotificationsService } from './notifications.service';
@@ -72,5 +73,20 @@ export class NotificationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.notifications.markOpened(id, user.id);
+  }
+}
+
+@ApiTags('admin')
+@ApiBearerAuth()
+@Roles(UserRole.Admin)
+@Controller('admin/users')
+export class NotificationsAdminController {
+  constructor(private readonly notifications: NotificationsService) {}
+
+  // "User X says they never got the invitation": one call shows their
+  // devices, each notification, and what happened to it on each device.
+  @Get(':userId/notification-trace')
+  trace(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.notifications.trace(userId);
   }
 }

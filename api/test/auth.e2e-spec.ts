@@ -255,4 +255,13 @@ describe('Auth (e2e)', () => {
       .send({ refreshToken: u.refreshToken })
       .expect(401);
   });
+
+  it('keeps admin routes for admins', async () => {
+    const u = await registerUser(app);
+    const res = await http()
+      .get('/admin/funnel/invitations?from=2026-01-01&to=2027-01-01')
+      .set(auth(u))
+      .expect(403);
+    expect(res.body.error.code).toBe('forbidden');
+  });
 });

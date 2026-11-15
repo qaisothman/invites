@@ -9,6 +9,7 @@ import {
 } from '../common/pagination';
 import { rowsOf } from '../database/sql';
 import { Notification } from './notification.entity';
+import { PushTicket } from './push-ticket.entity';
 
 export interface EnqueueInput {
   userId: string;
@@ -25,6 +26,8 @@ export class NotificationsService {
     private readonly db: DataSource,
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
+    @InjectRepository(PushTicket)
+    private readonly tickets: Repository<PushTicket>,
   ) {}
 
   // The transactional outbox. Takes the caller's EntityManager, so the row is
@@ -137,6 +140,49 @@ export class NotificationsService {
         openedAt: n.openedAt,
       })),
       nextCursor,
+    };
+  }
+
+  // Support's answer to "I never got the invitation": every notification for
+  // the user, each send attempt per device, and what Expo said about it.
+  async trace(userId: string, limit = 20) {
+    const items = await this.notifications.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+    const ids = items.map((n) => n.id);
+    const tickets = ids.length
+      ? await this.tickets
+          .createQueryBuilder('t')
+          .leftJoinAndSelect('t.device', 'd')
+          .where('t.notification_id IN (:...ids)', { ids })
+          .orderBy('t.created_at', 'ASC')
+          .getMany()
+      : [];
+    const devices: unknown = await this.db.query(
+      `SELECT id, platform, app_version, notifications, last_seen_at, disabled_at, disabled_reason
+       FROM devices WHERE user_id = $1 ORDER BY last_seen_at DESC`,
+      [userId],
+    );
+    return {
+      devices,
+      notifications: items.map((n) => ({
+        ...n,
+        attempts: tickets
+          .filter((t) => t.notificationId === n.id)
+          .map((t) => ({
+            // Which claim of the notification sent it (its `attempts`).
+            attempt: t.attempt,
+            deviceId: t.deviceId,
+            platform: t.device?.platform,
+            sentAt: t.createdAt,
+            ticket: t.status,
+            ticketError: t.error,
+            receipt: t.receiptStatus,
+            receiptError: t.receiptError,
+          })),
+      })),
     };
   }
 

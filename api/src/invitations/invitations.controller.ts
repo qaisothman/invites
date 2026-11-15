@@ -11,8 +11,14 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { Roles } from '../auth/decorators';
 import { Quota } from '../common/quota';
-import { CreateInvitationDto, ListInvitationsQuery } from './invitations.dto';
+import { UserRole } from '../users/user.entity';
+import {
+  CreateInvitationDto,
+  FunnelQuery,
+  ListInvitationsQuery,
+} from './invitations.dto';
 import { InvitationsService } from './invitations.service';
 
 @ApiTags('invitations')
@@ -65,5 +71,18 @@ export class InvitationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.invitations.cancel(id, user.id);
+  }
+}
+
+@ApiTags('admin')
+@ApiBearerAuth()
+@Roles(UserRole.Admin)
+@Controller('admin/funnel')
+export class FunnelController {
+  constructor(private readonly invitations: InvitationsService) {}
+
+  @Get('invitations')
+  funnel(@Query() q: FunnelQuery) {
+    return this.invitations.funnel(q.from, q.to);
   }
 }

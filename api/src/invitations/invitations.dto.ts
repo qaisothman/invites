@@ -1,5 +1,6 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsDate,
   IsEnum,
   IsIn,
   IsOptional,
@@ -30,4 +31,14 @@ export class ListInvitationsQuery extends PageQuery {
   @IsOptional()
   @IsEnum(InvitationStatus)
   status?: InvitationStatus;
+}
+
+export class FunnelQuery {
+  @Type(() => Date)
+  @IsDate()
+  from: Date;
+
+  @Type(() => Date)
+  @IsDate()
+  to: Date;
 }

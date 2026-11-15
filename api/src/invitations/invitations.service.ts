@@ -20,6 +20,7 @@ import {
   toInvitationView,
 } from './invitation.entity';
 import { CreateInvitationDto, ListInvitationsQuery } from './invitations.dto';
+import { FUNNEL_SQL } from './funnel.sql';
 
 const receivedKey = (id: string) => `invitation:${id}:received`;
 const acceptedKey = (id: string) => `invitation:${id}:accepted`;
@@ -238,6 +239,68 @@ export class InvitationsService {
       ),
     );
     return rows.length;
+  }
+
+  // The growth funnel for invitations created in [from, to): every step from
+  // "created" to "accepted", plus where the rest dropped out.
+  async funnel(from: Date, to: Date) {
+    const [r] = await this.db.query<Record<string, number | null>[]>(
+      FUNNEL_SQL,
+      [from, to],
+    );
+    // Each step with the step it is a subset of, so no conversion passes 1.
+    // Opening is measured against every invitation, not against delivered:
+    // the invitee can open it from a push, from the inbox or from the email.
+    const steps = [
+      ['created', null],
+      ['push_sent', 'created'],
+      ['delivered', 'push_sent'],
+      ['opened', 'created'],
+      ['accepted', 'opened'],
+    ] as const;
+    return {
+      from,
+      to,
+      steps: steps.map(([step, previous]) => ({
+        step,
+        count: r[step] ?? 0,
+        previous,
+        // Conversion from `previous`, the number that tells you where to look.
+        fromPrevious:
+          previous && r[previous]
+            ? Number(((r[step] ?? 0) / r[previous]).toFixed(3))
+            : null,
+      })),
+      dropOff: {
+        // No phone of the invitee's could show the push: none registered,
+        // notifications off on all, or only a dormant Android phone.
+        unreachable: r.unreachable,
+        pushFailed: r.push_failed,
+        // Cancelled or expired before its push went out: nothing was sent.
+        withdrawn: r.withdrawn,
+        stillQueued: r.still_queued,
+        declined: r.declined,
+      },
+      // The second channel for the unreachable and the failed (ADR 0006):
+      // what the emailer did, and whether those invitees then opened and
+      // accepted, which says whether the channel pays off.
+      email: {
+        sent: r.email_sent,
+        optedOut: r.email_opted_out,
+        openedAfter: r.email_opened,
+        acceptedAfter: r.email_accepted,
+      },
+      secondsToDelivery: {
+        p50:
+          r.p50_seconds_to_delivery === null
+            ? null
+            : Math.round(r.p50_seconds_to_delivery),
+        p95:
+          r.p95_seconds_to_delivery === null
+            ? null
+            : Math.round(r.p95_seconds_to_delivery),
+      },
+    };
   }
 
   private async load(id: string) {

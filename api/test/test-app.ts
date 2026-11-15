@@ -73,6 +73,21 @@ export async function registerUser(
   };
 }
 
+// Promotes a user to admin and signs in again, so the new role is in the token.
+export async function makeAdmin(
+  app: TestApp,
+  user: TestUser,
+): Promise<TestUser> {
+  await app
+    .get(DataSource)
+    .query(`UPDATE users SET role = 'admin' WHERE id = $1`, [user.id]);
+  const res = await request(app.getHttpServer())
+    .post('/auth/login')
+    .send({ email: user.email, password: 'correct horse battery' })
+    .expect(200);
+  return { ...user, token: (res.body as AuthBody).accessToken };
+}
+
 export async function addDevice(
   app: TestApp,
   user: TestUser,
