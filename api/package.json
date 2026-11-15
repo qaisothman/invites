@@ -22,7 +22,10 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js"
+    "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js",
+    "bench:db": "ts-node --transpile-only bench/db-scaling.ts",
+    "bench:dispatch": "ts-node --transpile-only bench/dispatch.ts",
+    "bench:http": "ts-node --transpile-only bench/http.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.10",
@@ -50,10 +53,13 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@types/autocannon": "^7.12.7",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.0.0",
+    "autocannon": "^8.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

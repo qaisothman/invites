@@ -1,0 +1,145 @@
+{
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 14,
+    "memoryGb": 36,
+    "node": "v24.21.0",
+    "postgres": "15.14 (Homebrew)",
+    "note": "Laptop, Postgres on the same machine, default Postgres settings (shared_buffers 128MB).",
+    "date": "2026-11-15T01:19:30.227Z"
+  },
+  "results": [
+    {
+      "group": "workers",
+      "workers": 1,
+      "batch": 200,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 19.6,
+      "perSecond": 1021,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "workers",
+      "workers": 2,
+      "batch": 200,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 9.87,
+      "perSecond": 2027,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "workers",
+      "workers": 4,
+      "batch": 200,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 4.93,
+      "perSecond": 4055,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "workers",
+      "workers": 8,
+      "batch": 200,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 2.56,
+      "perSecond": 7798,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "workers",
+      "workers": 16,
+      "batch": 200,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 1.38,
+      "perSecond": 14480,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "batch",
+      "workers": 4,
+      "batch": 50,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 16.62,
+      "perSecond": 1203,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "batch",
+      "workers": 4,
+      "batch": 100,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 8.7,
+      "perSecond": 2298,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "batch",
+      "workers": 4,
+      "batch": 200,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 4.79,
+      "perSecond": 4179,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "batch",
+      "workers": 4,
+      "batch": 500,
+      "latencyMs": 150,
+      "n": 20000,
+      "seconds": 3.7,
+      "perSecond": 5403,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "latency",
+      "workers": 4,
+      "batch": 200,
+      "latencyMs": 0,
+      "n": 20000,
+      "seconds": 0.67,
+      "perSecond": 29974,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "latency",
+      "workers": 4,
+      "batch": 200,
+      "latencyMs": 50,
+      "n": 20000,
+      "seconds": 2.06,
+      "perSecond": 9725,
+      "sent": 20000,
+      "duplicateSends": 0
+    },
+    {
+      "group": "latency",
+      "workers": 4,
+      "batch": 200,
+      "latencyMs": 500,
+      "n": 20000,
+      "seconds": 13.77,
+      "perSecond": 1452,
+      "sent": 20000,
+      "duplicateSends": 0
+    }
+  ]
+}
