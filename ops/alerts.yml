@@ -1,0 +1,99 @@
+# Each alert pages only for something a person must act on.
+groups:
+  - name: invites
+    rules:
+      - alert: OutboxBacklogGrowing
+        # Notifications are waiting longer than the 60-second delivery target.
+        expr: max(outbox_oldest_due_seconds) > 120
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: Push notifications are queuing up
+
+      - alert: PushProviderFailing
+        # More than 5% of send attempts are being retried or failing.
+        expr: |
+          sum(rate(notifications_dispatched_total{outcome=~"retry|failed"}[10m]))
+            / sum(rate(notifications_dispatched_total[10m])) > 0.05
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: Expo is rejecting or timing out on sends
+
+      - alert: ScrapeFailing
+        # Prometheus can't reach the API or the worker: the process is down,
+        # restarting or not answering. A database outage doesn't cause it: the
+        # database gauges read NaN and the rest of the scrape still arrives.
+        expr: up{job=~"api|worker"} == 0
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: Prometheus cannot scrape the API or the worker
+
+      - alert: DeadTokenSpike
+        # Receipts reporting errors well above normal: a bad build, or APNs/FCM
+        # credentials expired.
+        expr: |
+          sum(rate(push_receipts_total{outcome="error"}[30m]))
+            / sum(rate(push_receipts_total[30m])) > 0.15
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          summary: Many push receipts are errors
+
+      - alert: ApiErrorRate
+        expr: |
+          sum(rate(http_request_duration_seconds_count{status=~"5.."}[5m]))
+            / sum(rate(http_request_duration_seconds_count[5m])) > 0.01
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: More than 1% of API requests are failing
+
+      - alert: ApiLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{route!="unmatched"}[5m]))) > 0.3
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: p95 API latency above 300 ms
+
+      - alert: InvitationEmailSurge
+        # About half of phones never allow notifications, so the count of
+        # emails grows with the product. The share of notifications no phone
+        # could show, against the same hour last week, is what moves when a
+        # release breaks the permission prompt or tokens go dead. Only an hour
+        # with more than 100 invitations emailed counts.
+        expr: |
+          (
+            sum(increase(notifications_dispatched_total{outcome="unreachable"}[1h]))
+              / sum(increase(notifications_dispatched_total{outcome=~"sent|unreachable|failed"}[1h]))
+          )
+          > 1.5 * (
+            sum(increase(notifications_dispatched_total{outcome="unreachable"}[1h] offset 1w))
+              / sum(increase(notifications_dispatched_total{outcome=~"sent|unreachable|failed"}[1h] offset 1w))
+          )
+          and sum(increase(invitation_emails_total{outcome="sent"}[1h])) > 100
+        labels: { severity: ticket }
+        annotations:
+          summary: Far more notifications than last week found no phone to show them
+
+      - alert: InvitationEmailsStalled
+        # An invitation that should have been emailed has waited 10 minutes past
+        # EMAIL_AFTER_SECONDS: the emailer isn't running, its runs fail, or a
+        # send hangs. Invitees held by the one-email-a-day limit don't count.
+        expr: max(invitation_emails_oldest_due_seconds) > 600
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: Invitation emails are not going out
+
+      - alert: InvitationEmailFailures
+        # The provider refused an email 5 times and it was given up: provider
+        # down, or credentials or the sending domain broken. Every outcome's
+        # series exists from boot, so increase() sees the first failure.
+        expr: sum(increase(invitation_emails_total{outcome="failed"}[15m])) > 0
+        labels: { severity: ticket }
+        annotations:
+          summary: Invitation emails are failing
