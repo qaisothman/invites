@@ -46,9 +46,37 @@ export class EnvironmentVariables {
   @Min(1)
   DB_POOL_SIZE: number = 10;
 
+  // ---- Auth
   @IsString()
   @MinLength(32)
   JWT_SECRET!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(60)
+  ACCESS_TOKEN_TTL_SECONDS: number = 900;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  REFRESH_TOKEN_TTL_DAYS: number = 30;
+
+  // How long the previous refresh token is still accepted after a rotation,
+  // as long as its successor hasn't been used. Covers a refresh response lost
+  // on a flaky network; 0 turns it off. See ADR 0005.
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  REFRESH_GRACE_SECONDS: number = 10;
+
+  // scrypt cost as log2(N): 15 means N = 32768, about 32 MB of memory per
+  // hash, which is what makes guessing expensive on GPUs.
+  @Type(() => Number)
+  @IsInt()
+  @Min(10)
+  @Max(17)
+  PASSWORD_HASH_COST: number = 15;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

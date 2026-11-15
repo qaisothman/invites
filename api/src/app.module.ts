@@ -7,6 +7,7 @@ import {
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './auth/auth.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AppConfig, validateEnv } from './config/env.validation';
@@ -26,6 +27,7 @@ import { MetricsModule } from './metrics/metrics.module';
         ),
     }),
     MetricsModule,
+    AuthModule,
   ],
   controllers: [HealthController],
   providers: [

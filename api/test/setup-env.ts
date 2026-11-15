@@ -7,5 +7,6 @@ Object.assign(process.env, {
     process.env.TEST_DATABASE_URL ??
     'postgres://localhost:5432/nest_invites_test',
   JWT_SECRET: 'test-secret-that-is-at-least-32-characters',
+  PASSWORD_HASH_COST: '10', // fast hashing in tests; production uses 15
   LOG_REQUESTS: 'false',
 });

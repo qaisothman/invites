@@ -1,3 +1,5 @@
+import { QueryFailedError } from 'typeorm';
+
 // TypeORM's raw `query()` on Postgres returns rows for a SELECT, but
 // [rows, rowCount] for an UPDATE/DELETE ... RETURNING. This normalises both.
 export function rowsOf<T>(result: unknown): T[] {
@@ -11,3 +13,7 @@ export function rowsOf<T>(result: unknown): T[] {
   }
   return result as T[];
 }
+
+export const isUniqueViolation = (e: unknown) =>
+  e instanceof QueryFailedError &&
+  (e.driverError as { code?: string }).code === '23505';
