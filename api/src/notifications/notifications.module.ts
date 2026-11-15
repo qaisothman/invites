@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { AppConfig } from '../config/env.validation';
+import { DevicesModule } from '../devices/devices.module';
+import { OutboxDispatcher } from './dispatcher';
 import { Notification } from './notification.entity';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
@@ -10,10 +12,11 @@ import { FakePushSender } from './providers/fake-push.sender';
 import { PUSH_SENDER } from './providers/push-sender';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification])],
+  imports: [TypeOrmModule.forFeature([Notification]), DevicesModule],
   controllers: [NotificationsController],
   providers: [
     NotificationsService,
+    OutboxDispatcher,
     ExpoPushSender,
     FakePushSender,
     // Which implementation backs each interface is decided once, here, from

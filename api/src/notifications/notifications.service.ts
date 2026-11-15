@@ -29,6 +29,7 @@ export class NotificationsService {
   // written in the same transaction as the business change (the invitation).
   // Either both commit or neither does: no invitation without its
   // notification, no notification for an invitation that rolled back.
+  // Sending happens later, in the dispatcher, never inside the transaction.
   async enqueue(manager: EntityManager, input: EnqueueInput): Promise<void> {
     await manager.query(
       `INSERT INTO notifications (user_id, type, title, body, data, dedupe_key)
@@ -46,8 +47,9 @@ export class NotificationsService {
   }
 
   // The user saw the thing the notification is about inside the app (for
-  // example opened the invitation from their inbox). Counts as opened. Not
-  // as delivered: delivered_at is only ever a phone confirming the push.
+  // example opened the invitation from their inbox). Counts as opened, and
+  // stops the push about something they've already seen. Not as delivered:
+  // delivered_at is only ever a phone confirming the push.
   async markSeenByDedupeKey(manager: EntityManager, dedupeKey: string) {
     await manager.query(
       `UPDATE notifications

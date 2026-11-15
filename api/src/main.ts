@@ -23,7 +23,7 @@ async function bootstrap() {
       app,
       new DocumentBuilder()
         .setTitle('Invites API')
-        .setDescription('Invitations')
+        .setDescription('Invitations with measured push delivery')
         .setVersion('1.0')
         .addBearerAuth()
         .build(),

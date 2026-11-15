@@ -71,4 +71,18 @@ export async function registerUser(
   };
 }
 
+export async function addDevice(
+  app: TestApp,
+  user: TestUser,
+  token = `ExponentPushToken[${randomUUID()}]`,
+  report: { platform?: 'ios' | 'android'; notifications?: string } = {},
+) {
+  await request(app.getHttpServer())
+    .post('/devices')
+    .set('authorization', `Bearer ${user.token}`)
+    .send({ expoPushToken: token, platform: 'ios', ...report })
+    .expect(201);
+  return token;
+}
+
 export const auth = (u: TestUser) => ({ authorization: `Bearer ${u.token}` });

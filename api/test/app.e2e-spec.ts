@@ -76,6 +76,7 @@ describe('App skeleton (e2e)', () => {
   it('exposes Prometheus metrics', async () => {
     const res = await request(app.getHttpServer()).get('/metrics').expect(200);
     expect(res.text).toContain('http_request_duration_seconds');
+    expect(res.text).toContain('outbox_due');
     expect(res.text).toContain('device_reports_total');
   });
 });

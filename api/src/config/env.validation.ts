@@ -114,6 +114,26 @@ export class EnvironmentVariables {
   @IsString()
   APP_LINK_BASE: string = 'https://invites.example.com';
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  DISPATCH_BATCH_SIZE: number = 200;
+
+  // Attempts for a push that fails in transport (network, timeout, Expo 429
+  // or 5xx). With the 5 s doubling backoff, 8 attempts span 5 to 11 minutes.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  PUSH_MAX_ATTEMPTS: number = 8;
+
+  // How long a push failing on the provider's side (credentials, Apple or
+  // Google rate limits) keeps being retried; those don't use up attempts.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  PUSH_GIVE_UP_AFTER_HOURS: number = 24;
+
   // ---- Providers
   @IsIn(['expo', 'fake'])
   PUSH_DRIVER: 'expo' | 'fake' = 'expo';
