@@ -163,6 +163,15 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   FAKE_PUSH_LATENCY_MS: number = 0;
+
+  // No email provider is connected yet: 'log' writes each email to the log.
+  // docs/08-sending-real-email.md lists what a real one needs.
+  @IsIn(['log', 'fake'])
+  EMAIL_DRIVER: 'log' | 'fake' = 'log';
+
+  // The From address every invitation email carries.
+  @IsString()
+  EMAIL_FROM: string = 'Invites <invitations@notify.invites.example.com>';
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -179,6 +188,9 @@ export function validateEnv(config: Record<string, unknown>) {
   }
   if (env.NODE_ENV === 'production' && env.PUSH_DRIVER === 'fake') {
     throw new Error('Invalid environment: PUSH_DRIVER=fake in production');
+  }
+  if (env.NODE_ENV === 'production' && env.EMAIL_DRIVER === 'fake') {
+    throw new Error('Invalid environment: EMAIL_DRIVER=fake in production');
   }
   if (
     env.NODE_ENV === 'production' &&

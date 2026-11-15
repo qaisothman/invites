@@ -10,6 +10,7 @@ Object.assign(process.env, {
   PASSWORD_HASH_COST: '10', // fast hashing in tests; production uses 15
   WORKERS_ENABLED: 'false', // tests drive the workers by hand
   PUSH_DRIVER: 'fake',
+  EMAIL_DRIVER: 'fake',
   RECEIPT_DELAY_SECONDS: '0',
   THROTTLE_PER_MINUTE: '100000',
   AUTH_PER_MINUTE: '100000',

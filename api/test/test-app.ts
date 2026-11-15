@@ -6,6 +6,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { FakePushSender } from '../src/notifications/providers/fake-push.sender';
+import { FakeEmailSender } from '../src/notifications/providers/email-sender';
 
 export type TestApp = INestApplication<App>;
 
@@ -30,6 +31,7 @@ export async function resetDatabase(app: TestApp) {
   const tables = db.entityMetadatas.map((m) => `"${m.tableName}"`);
   await db.query(`TRUNCATE ${tables.join(', ')} RESTART IDENTITY CASCADE`);
   app.get(FakePushSender).reset();
+  app.get(FakeEmailSender).reset();
 }
 
 export interface TestUser {

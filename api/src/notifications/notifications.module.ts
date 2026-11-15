@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { AppConfig } from '../config/env.validation';
@@ -11,6 +11,11 @@ import { NotificationsService } from './notifications.service';
 import { ExpoPushSender } from './providers/expo-push.sender';
 import { FakePushSender } from './providers/fake-push.sender';
 import { PUSH_SENDER } from './providers/push-sender';
+import {
+  EMAIL_SENDER,
+  FakeEmailSender,
+  LogEmailSender,
+} from './providers/email-sender';
 import { ReceiptPoller } from './receipts';
 
 @Module({
@@ -23,6 +28,8 @@ import { ReceiptPoller } from './receipts';
     ReceiptPoller,
     ExpoPushSender,
     FakePushSender,
+    LogEmailSender,
+    FakeEmailSender,
     // Which implementation backs each interface is decided once, here, from
     // config. Nothing else in the codebase knows Expo exists.
     {
@@ -34,6 +41,22 @@ import { ReceiptPoller } from './receipts';
         fake: FakePushSender,
       ) =>
         config.get('PUSH_DRIVER', { infer: true }) === 'fake' ? fake : expo,
+    },
+    {
+      provide: EMAIL_SENDER,
+      inject: [ConfigService, LogEmailSender, FakeEmailSender],
+      useFactory: (
+        config: ConfigService<AppConfig, true>,
+        log: LogEmailSender,
+        fake: FakeEmailSender,
+      ) => {
+        if (config.get('EMAIL_DRIVER', { infer: true }) === 'fake') return fake;
+        if (config.get('NODE_ENV', { infer: true }) === 'production')
+          new Logger('Email').warn(
+            'No email provider connected: invitation emails are logged, not sent',
+          );
+        return log;
+      },
     },
   ],
   exports: [NotificationsService, OutboxDispatcher, ReceiptPoller],
