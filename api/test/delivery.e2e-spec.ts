@@ -86,6 +86,11 @@ describe('Notification delivery (e2e)', () => {
         return results;
       });
   };
+  const ack = (m: PushMessage) =>
+    http()
+      .post(`/notifications/${m.data.notificationId as string}/ack`)
+      .send({ token: m.data.ackToken })
+      .expect(204);
 
   it('sends to every active device and records a ticket per device', async () => {
     const phone = await addDevice(app, bob);
@@ -113,6 +118,47 @@ describe('Notification delivery (e2e)', () => {
       `SELECT receipt_status FROM push_tickets`,
     )) as { receipt_status: string }[];
     expect(after.every((t) => t.receipt_status === 'ok')).toBe(true);
+  });
+
+  it('follows the push to the phone: delivered, then opened', async () => {
+    await addDevice(app, bob);
+    await invite();
+    await dispatch();
+    const { id } = await notif();
+    await http()
+      .post(`/notifications/${id}/delivered`)
+      .set(auth(bob))
+      .expect(204);
+    expect((await notif()).status).toBe('delivered');
+    await http().post(`/notifications/${id}/opened`).set(auth(bob)).expect(204);
+    await http()
+      .post(`/notifications/${id}/delivered`)
+      .set(auth(bob))
+      .expect(204); // late, out of order
+    expect((await notif()).status).toBe('opened'); // never moves backwards
+    // Someone else's notification is invisible.
+    await http()
+      .post(`/notifications/${id}/opened`)
+      .set(auth(alice))
+      .expect(404);
+  });
+
+  it('lets a background task confirm delivery with the token from the push', async () => {
+    await addDevice(app, bob);
+    await invite();
+    await dispatch();
+    const { id } = await notif();
+    const token = push.sent[0].data.ackToken as string;
+    expect(token).toBeTruthy();
+
+    // No Authorization header: the signed token is the proof.
+    const wrong = await http()
+      .post(`/notifications/${id}/ack`)
+      .send({ token: token.slice(0, -2) + 'xx' })
+      .expect(401);
+    expect(wrong.body.error.code).toBe('invalid_ack_token');
+    await http().post(`/notifications/${id}/ack`).send({ token }).expect(204);
+    expect((await notif()).status).toBe('delivered');
   });
 
   it('retries a provider outage with backoff, then succeeds', async () => {
@@ -241,6 +287,20 @@ describe('Notification delivery (e2e)', () => {
     );
     // Nothing reached Expo, so there is no ticket.
     expect(await db().query(`SELECT id FROM push_tickets`)).toHaveLength(0);
+  });
+
+  it('keeps a confirmation that arrives while the push is being sent', async () => {
+    await addDevice(app, bob);
+    await invite();
+    const spy = duringSend((messages) => Promise.all(messages.map(ack)));
+    try {
+      await dispatch();
+    } finally {
+      spy.mockRestore();
+    }
+    const n = await notif();
+    expect(n.status).toBe('delivered');
+    expect(n.sent_at).toBeInstanceOf(Date);
   });
 
   it('does not push again an invitation seen while its push failed', async () => {

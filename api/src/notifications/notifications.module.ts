@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { AppConfig } from '../config/env.validation';
 import { DevicesModule } from '../devices/devices.module';
+import { AckTokens } from './ack-tokens';
 import { OutboxDispatcher } from './dispatcher';
 import { Notification } from './notification.entity';
 import { NotificationsController } from './notifications.controller';
@@ -17,6 +18,7 @@ import { ReceiptPoller } from './receipts';
   controllers: [NotificationsController],
   providers: [
     NotificationsService,
+    AckTokens,
     OutboxDispatcher,
     ReceiptPoller,
     ExpoPushSender,

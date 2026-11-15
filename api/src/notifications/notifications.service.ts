@@ -1,12 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   afterCursor,
   decodeCursor,
   page,
   PageQuery,
 } from '../common/pagination';
+import { rowsOf } from '../database/sql';
 import { Notification } from './notification.entity';
 
 export interface EnqueueInput {
@@ -21,6 +22,7 @@ export interface EnqueueInput {
 @Injectable()
 export class NotificationsService {
   constructor(
+    private readonly db: DataSource,
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
   ) {}
@@ -44,6 +46,56 @@ export class NotificationsService {
         input.dedupeKey,
       ],
     );
+  }
+
+  // Delivery confirmed by the signed token from the push (see AckTokens),
+  // from a background task that may have no session.
+  async markDeliveredById(id: string) {
+    const rows = rowsOf(
+      await this.db.query(
+        `UPDATE notifications
+         SET delivered_at = coalesce(delivered_at, now()),
+             status = CASE WHEN status = 'opened' THEN status ELSE 'delivered' END,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id`,
+        [id],
+      ),
+    );
+    if (rows.length === 0) throw this.notFound();
+  }
+
+  // The app reports that a push arrived. A notification can only move
+  // forward: an "opened" one never goes back to "delivered".
+  async markDelivered(id: string, userId: string) {
+    const rows = rowsOf(
+      await this.db.query(
+        `UPDATE notifications
+         SET delivered_at = coalesce(delivered_at, now()),
+             status = CASE WHEN status = 'opened' THEN status ELSE 'delivered' END,
+             updated_at = now()
+         WHERE id = $1 AND user_id = $2
+         RETURNING id`,
+        [id, userId],
+      ),
+    );
+    if (rows.length === 0) throw this.notFound();
+  }
+
+  async markOpened(id: string, userId: string) {
+    const rows = rowsOf(
+      await this.db.query(
+        `UPDATE notifications
+         SET delivered_at = coalesce(delivered_at, now()),
+             opened_at = coalesce(opened_at, now()),
+             status = 'opened',
+             updated_at = now()
+         WHERE id = $1 AND user_id = $2
+         RETURNING id`,
+        [id, userId],
+      ),
+    );
+    if (rows.length === 0) throw this.notFound();
   }
 
   // The user saw the thing the notification is about inside the app (for
@@ -85,5 +137,12 @@ export class NotificationsService {
       })),
       nextCursor,
     };
+  }
+
+  private notFound() {
+    return new NotFoundException({
+      code: 'notification_not_found',
+      message: 'Notification not found',
+    });
   }
 }

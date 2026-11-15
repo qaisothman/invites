@@ -6,6 +6,7 @@ import { rowsOf } from '../database/sql';
 import { Device } from '../devices/device.entity';
 import { DevicesService } from '../devices/devices.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { AckTokens } from './ack-tokens';
 import { retryDelaySeconds } from './backoff';
 import { NotificationType } from './notification-types';
 import {
@@ -73,6 +74,7 @@ export class OutboxDispatcher {
     @Inject(PUSH_SENDER) private readonly push: PushSender,
     private readonly config: ConfigService<AppConfig, true>,
     private readonly metrics: MetricsService,
+    private readonly ack: AckTokens,
   ) {}
 
   // One batch. Returns how many notifications it claimed, so the caller can
@@ -135,6 +137,8 @@ export class OutboxDispatcher {
               ...n.data,
               notificationId: n.id,
               type: n.type,
+              // Lets the phone confirm delivery without a session.
+              ackToken: this.ack.sign(n.id),
             },
           },
         });
