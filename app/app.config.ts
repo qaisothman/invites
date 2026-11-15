@@ -28,7 +28,7 @@ const config: ExpoConfig = {
     bundleIdentifier: APP_ID,
     // Written into the Xcode project as DEVELOPMENT_TEAM, so the team is set
     // for automatic signing after every prebuild. The first device build
-    // still runs from the Xcode app.
+    // still runs from the Xcode app (README: Real push on an iPhone).
     appleTeamId: APPLE_TEAM_ID,
     icon: './assets/expo.icon',
     // Universal links: https://invites.example.com/i/<id> (the `url` in every

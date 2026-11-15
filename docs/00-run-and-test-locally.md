@@ -1,10 +1,11 @@
 # Run and test it locally
 
-Everything runs on one machine: Postgres in Docker, the API and its workers in one Node process. Push goes through a fake provider, and invitation emails are written to the API's log, so no accounts or keys are needed. About 15 minutes from a fresh clone to every path in steps 1 and 2.
+Everything runs on one machine: Postgres in Docker, the API and its workers in one Node process, and the app in the iOS Simulator or an Android emulator. Push goes through a fake provider, and invitation emails are written to the API's log, so no accounts or keys are needed. About 15 minutes from a fresh clone to every path in steps 1 and 2; the app's first build adds a few more.
 
 ## What you need
 
 - Node 24 (`.nvmrc`), Docker, `curl` and `jq` (`brew install jq`; macOS 15 and later ship it).
+- For the app: Xcode with an iOS Simulator, or Android Studio with an emulator.
 
 Every command block below can be pasted as it is into a terminal, one block at a time. Each says where it runs.
 
@@ -29,7 +30,7 @@ npm run migration:run
 npm run start:dev
 ```
 
-That is Postgres 16 in Docker, and the API with its background workers in one process. `--wait` returns once Postgres accepts connections. The `sed` line copies `api/.env.example` to `api/.env` with the database's address, `127.0.0.1:5432` or `127.0.0.1:5433`. `.env.example` is set up for this guide: port 3100, a fake push provider that accepts every push without sending it, and a 20-second wait before an invitation email instead of 15 minutes, so you can watch it happen.
+That is Postgres 16 in Docker, and the API with its background workers in one process. `--wait` returns once Postgres accepts connections. The `sed` line copies `api/.env.example` to `api/.env` with the database's address, `127.0.0.1:5432` or `127.0.0.1:5433`. `.env.example` is set up for this guide: port 3100 (what the app expects), a fake push provider that accepts every push without sending it, and a 20-second wait before an invitation email instead of 15 minutes, so you can watch it happen.
 
 When it's up, `curl localhost:3100/health/ready` answers `{"status":"ok"}`, and the API explorer is at http://localhost:3100/docs.
 
@@ -72,7 +73,7 @@ call $BOB -X POST $API/notifications/$NID/opened -w '%{http_code}\n'
 call $BOB -X POST $API/invitations/$INV/accept | jq -c '{status}'
 ```
 
-That prints `204`, `204` and `{"status":"accepted"}`.
+That prints `204`, `204` and `{"status":"accepted"}`. The real app does the same: a delivered ack from its listener or background task (signed per notification, no session needed), and `opened` on a tap.
 
 ### Bob turns notifications off: the email
 
@@ -125,7 +126,7 @@ call $BOB $API/users/me | jq -c '{invitationEmails}'
 curl -s -X POST "${LINK%t=*}t=forged-forged-forged-forged" | jq -c .error.code
 ```
 
-That prints `{"invitationEmails":false}`, then `"invalid_link"` for the forged link. The same switch is `PATCH /users/me {"invitationEmails": true}`.
+That prints `{"invitationEmails":false}`, then `"invalid_link"` for the forged link. The same switch is `PATCH /users/me {"invitationEmails": true}`, and in the app under Profile.
 
 ### The funnel and the support trace
 
@@ -144,9 +145,43 @@ The funnel shows each step from created to accepted, the drop-off (here `unreach
 
 Prometheus metrics are at http://localhost:3100/metrics: `notifications_dispatched_total`, `invitation_emails_total`, `device_reports_total` and the rest. There, `unreachable` counts Alice's "Bob accepted" notification too, since Alice has no phone registered.
 
-## 3. Run the tests
+## 3. The app
 
-In the second terminal, at the repo root. The block creates the test database and runs the API's unit and end-to-end tests against it:
+With the API from step 1 still running, in a third terminal at the repo root:
+
+```bash
+cd app
+npm ci
+npx expo run:ios
+```
+
+For an Android emulator instead, which reaches the Mac at `10.0.2.2`:
+
+```bash
+cd app
+npm ci
+echo EXPO_PUBLIC_API_URL=http://10.0.2.2:3100 >> .env
+npx expo run:android
+```
+
+The first build takes a few minutes; after that, `npx expo start` is enough. Sign in as `bob@example.com` / `correct horse battery`. Things to try:
+
+- The inbox shows Alice's second invitation and Carol's, both pending, above Alice's first, which is accepted. Open one, then accept or decline.
+- The inbox offers to turn notifications on: **Turn on** brings up the iOS prompt. Allow it, switch notifications off for Invites in the Settings app, and come back: the inbox now offers to open Settings. "Not now", or refusing the iOS prompt, quiets it for a week.
+- Profile has the invitation-emails switch, the same setting the link changed.
+- Once Carol's invitation is answered, invite Bob again as Carol from the second terminal, then pull down on his inbox: the new invitation is there.
+
+  ```bash
+  CAROL=$(login carol)
+  call $CAROL $API/invitations -d "{\"inviteeId\":\"$BOB_ID\"}" > /dev/null
+  ```
+- Sign out in Profile, sign in as `alice@example.com`, and invite Carol from the Invite tab by her email address (`carol@example.com`).
+
+The app registers its own phone with the API, and reports its notifications state, only when it has an Expo project id: without one it logs that it is skipping push registration, and the phone in the support trace stays the one from step 2. To see the app's own reports, put an id from `npx eas-cli@latest init` in `app/.env` as `EAS_PROJECT_ID` and restart `npx expo start`. Real push on a phone needs Apple credentials too: [app/README.md](../app/README.md#real-push-on-an-iphone).
+
+## 4. Run the tests
+
+In the second terminal, at the repo root. The block creates the test database, runs the API's unit and end-to-end tests against it, then installs the app's dependencies (quick if step 3 already did) and runs the app's tests and type check:
 
 ```bash
 docker compose exec db createdb -U postgres nest_invites_test
@@ -154,14 +189,18 @@ export TEST_DATABASE_URL=postgres://postgres@$(docker compose port db 5432)/nest
 cd api
 npm test
 npm run test:e2e
+cd ../app
+npm ci
+npm test
+npm run typecheck
 cd ..
 ```
 
-That is 43 unit tests and 69 end-to-end tests.
+That is 43 unit tests, 69 end-to-end tests and 18 app tests.
 
 The end-to-end suite boots the real API against Postgres, with only the push and email providers faked. One test makes the outbox fail on purpose, so an `outbox unavailable` error with a stack trace in the output is expected. It covers what the steps above can't trigger by hand: an Expo outage and its retries, broken push credentials, an uninstalled app, receipt errors, an invitation withdrawn while its push waited, a crashed worker's lease and email claim, four dispatchers racing over one outbox, a refresh response lost on the way to the phone, an email the provider refused five times, and the rate limits. The [root README](../README.md#test-it) lists them all.
 
-## 4. Optional
+## 5. Optional
 
 **Benchmarks.** They need the database from step 1 running, and create and migrate their own database beside it, `nest_invites_bench` ([what they measure](benchmarks/README.md)). In the second terminal, at the repo root:
 
@@ -208,11 +247,11 @@ npm run migration:run
 npm run start:dev
 ```
 
-`down -v` removes this guide's containers, their network and the database volume: the development, test and bench databases all go. `api/.env` and the ports in `.env` stay. Step 3's block creates the test database again.
+`down -v` removes this guide's containers, their network and the database volume: the development, test and bench databases all go. `api/.env` and the ports in `.env` stay. Step 4's block creates the test database again.
 
 ## Clean up
 
-Stop the API and the stack (Ctrl-C in each), then at the repo root:
+Stop the API, Metro and the stack (Ctrl-C in each), then at the repo root:
 
 ```bash
 docker compose --profile stack down -v
@@ -220,10 +259,10 @@ rm -f .env api/.env
 git checkout -- docs/benchmarks
 ```
 
-That removes the containers, their network, the database volume, and the two `.env` files this guide wrote. If you ran the stack, this removes the image it built:
+That removes the containers, their network, the database volume, and the two `.env` files this guide wrote (`app/.env`, if you made one, stays). If you ran the stack, this removes the image it built:
 
 ```bash
 docker image rm invites-api:local
 ```
 
-Docker keeps the `postgres` and `prom/prometheus` images it downloaded. `node_modules` in `api/` and `api/dist` are ignored by git; delete them to reclaim the space.
+Docker keeps the `postgres` and `prom/prometheus` images it downloaded. `node_modules` in `api/` and `app/`, `api/dist` and the native projects `expo run` generated (`app/ios`, `app/android`) are ignored by git; delete them to reclaim the space. The app stays installed in the Simulator or emulator until you remove it there.

@@ -85,7 +85,7 @@ p95 above 300 ms. Check `http_request_duration_seconds` by route. A single slow 
 ## Invitation email surge
 
 **Alert:** the share of notifications no phone could show in the last hour (`unreachable` among `sent`, `unreachable` and `failed` in `notifications_dispatched_total`) is more than 1.5 times the same hour last week, and more than 100 invitations were emailed in that hour. About half of phones never allow notifications, so watch the share against last week, not the count.
-- A release broke the prompt? Compare the share of `device_reports_total{notifications="off"}` by `app_version`. One version far above the others broke the permission prompt or the Android "Invitations" channel; ship the fix as an OTA update or a store release.
+- A release broke the prompt? Compare the share of `device_reports_total{notifications="off"}` by `app_version`. One version far above the others broke the permission prompt or the Android "Invitations" channel; ship the fix as an OTA update or a store release ([mobile release](07-release-and-migrations.md#mobile-release)).
 - Tokens going dead? An invitee whose every token is dead at send (`DeviceNotRegistered`) counts as `unreachable` too. `DeviceNotRegistered` rising after a release: see [receipt errors](#receipt-errors).
 - If an abuse pattern appears (one inviter, many invitees), the per-user invite quota (`INVITES_PER_HOUR`) is the lever.
 

@@ -24,3 +24,10 @@ Rules:
 - CI fails if the entities and the migrations disagree (`migration:generate --check`).
 - `synchronize` is off in every environment.
 - Long data backfills run as jobs in batches, not inside a migration.
+
+## Mobile release
+
+- Builds via EAS, with development, preview and production profiles. A cloud build needs `APP_ID`, `APPLE_TEAM_ID` and `EAS_PROJECT_ID` as EAS environment variables, since `.env` isn't uploaded ([app README](../app/README.md#layout)).
+- OTA updates (`eas update`; needs `expo-updates`, which isn't installed yet) for JavaScript-only changes; a store release for native changes (new modules, permissions, SDK upgrades).
+- The API stays backward compatible with every app version in use: add fields, never remove or repurpose them. The `appVersion` on each device row shows which versions are active. `notifications` is optional on `POST /devices` and defaults to `allowed`, so a client that doesn't send it keeps working.
+- After a release, compare the share of `device_reports_total{notifications="off"}` for the new `app_version` with the others. Only a plain `x.y.z` version becomes a label; anything else is `other`. A jump means the release broke the permission prompt or the Android "Invitations" channel, and its users get emails, not pushes ([invitation email surge](05-runbook.md#email-surge)).
