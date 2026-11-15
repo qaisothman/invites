@@ -9,18 +9,23 @@ import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
-import { EnvironmentVariables, validateEnv } from './config/env.validation';
+import { AppConfig, validateEnv } from './config/env.validation';
 import { typeOrmOptions } from './database/typeorm.options';
 import { HealthController } from './health/health.controller';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        typeOrmOptions(config.get('DATABASE_URL', { infer: true })),
+      useFactory: (config: ConfigService<AppConfig, true>) =>
+        typeOrmOptions(
+          config.get('DATABASE_URL', { infer: true }),
+          config.get('DB_POOL_SIZE', { infer: true }),
+        ),
     }),
+    MetricsModule,
   ],
   controllers: [HealthController],
   providers: [
