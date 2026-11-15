@@ -7,4 +7,6 @@ import { typeOrmOptions } from './typeorm.options';
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
 
-export default new DataSource(typeOrmOptions(url));
+// Migrations are not requests: an index build may run for minutes, so the
+// API's statement timeout is lifted here.
+export default new DataSource(typeOrmOptions(url, 2, 0));
