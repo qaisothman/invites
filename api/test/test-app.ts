@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
+import { FakePushSender } from '../src/notifications/providers/fake-push.sender';
 
 export type TestApp = INestApplication<App>;
 
@@ -22,11 +23,13 @@ export async function createTestApp(
   return app;
 }
 
-// Empties every table between tests, keeping the migrations record.
+// Empties every table between tests, keeping the migrations record, and
+// forgets what the fake providers saw.
 export async function resetDatabase(app: TestApp) {
   const db = app.get(DataSource);
   const tables = db.entityMetadatas.map((m) => `"${m.tableName}"`);
   await db.query(`TRUNCATE ${tables.join(', ')} RESTART IDENTITY CASCADE`);
+  app.get(FakePushSender).reset();
 }
 
 export interface TestUser {

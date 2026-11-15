@@ -14,6 +14,14 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  readonly pushRequest = new Histogram({
+    name: 'push_provider_request_seconds',
+    help: 'Latency of calls to the push provider',
+    labelNames: ['op', 'outcome'] as const,
+    buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10],
+    registers: [this.registry],
+  });
+
   constructor() {
     collectDefaultMetrics({ register: this.registry });
   }

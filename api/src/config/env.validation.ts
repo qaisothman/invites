@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsOptional,
   IsString,
   Max,
   Min,
@@ -112,6 +113,20 @@ export class EnvironmentVariables {
 
   @IsString()
   APP_LINK_BASE: string = 'https://invites.example.com';
+
+  // ---- Providers
+  @IsIn(['expo', 'fake'])
+  PUSH_DRIVER: 'expo' | 'fake' = 'expo';
+
+  @IsOptional()
+  @IsString()
+  EXPO_ACCESS_TOKEN?: string;
+
+  // Fake push latency, used by the load tests to stand in for Expo's.
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  FAKE_PUSH_LATENCY_MS: number = 0;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -125,6 +140,9 @@ export function validateEnv(config: Record<string, unknown>) {
       )
       .join('; ');
     throw new Error(`Invalid environment: ${problems}`);
+  }
+  if (env.NODE_ENV === 'production' && env.PUSH_DRIVER === 'fake') {
+    throw new Error('Invalid environment: PUSH_DRIVER=fake in production');
   }
   if (
     env.NODE_ENV === 'production' &&

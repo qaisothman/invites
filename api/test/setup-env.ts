@@ -1,4 +1,4 @@
-// End-to-end tests run against their own database.
+// End-to-end tests run against their own database with fake providers.
 // Values set here win over .env, because ConfigModule never overwrites a
 // variable that already exists.
 Object.assign(process.env, {
@@ -8,6 +8,7 @@ Object.assign(process.env, {
     'postgres://localhost:5432/nest_invites_test',
   JWT_SECRET: 'test-secret-that-is-at-least-32-characters',
   PASSWORD_HASH_COST: '10', // fast hashing in tests; production uses 15
+  PUSH_DRIVER: 'fake',
   THROTTLE_PER_MINUTE: '100000',
   AUTH_PER_MINUTE: '100000',
   INVITES_PER_HOUR: '100000',
