@@ -150,6 +150,13 @@ export class EnvironmentVariables {
   @Min(0)
   RECEIPT_DELAY_SECONDS: number = 900;
 
+  // How long an invitation that no phone can show waits before it's emailed:
+  // long enough for an invitee who is in the app right now to see it there.
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  EMAIL_AFTER_SECONDS: number = 900;
+
   // ---- Providers
   @IsIn(['expo', 'fake'])
   PUSH_DRIVER: 'expo' | 'fake' = 'expo';
@@ -172,6 +179,12 @@ export class EnvironmentVariables {
   // The From address every invitation email carries.
   @IsString()
   EMAIL_FROM: string = 'Invites <invitations@notify.invites.example.com>';
+
+  // Where this API is reachable from the internet: every email's stop link
+  // and List-Unsubscribe header are built from it. Must be https in
+  // production (one-click unsubscribe, RFC 8058, requires it).
+  @IsString()
+  API_PUBLIC_URL: string = 'http://localhost:3000';
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -191,6 +204,14 @@ export function validateEnv(config: Record<string, unknown>) {
   }
   if (env.NODE_ENV === 'production' && env.EMAIL_DRIVER === 'fake') {
     throw new Error('Invalid environment: EMAIL_DRIVER=fake in production');
+  }
+  if (
+    env.NODE_ENV === 'production' &&
+    !env.API_PUBLIC_URL.startsWith('https://')
+  ) {
+    throw new Error(
+      'Invalid environment: API_PUBLIC_URL must be https in production',
+    );
   }
   if (
     env.NODE_ENV === 'production' &&

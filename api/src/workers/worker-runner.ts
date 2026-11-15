@@ -10,6 +10,10 @@ import { AuthService } from '../auth/auth.service';
 import type { AppConfig } from '../config/env.validation';
 import { InvitationsService } from '../invitations/invitations.service';
 import { OutboxDispatcher } from '../notifications/dispatcher';
+import {
+  InvitationEmailer,
+  PEOPLE_PER_RUN,
+} from '../notifications/invitation-emails';
 import { ReceiptPoller } from '../notifications/receipts';
 
 // Starts the background loops when WORKERS_ENABLED is true. The API and the
@@ -29,6 +33,7 @@ export class WorkerRunner
     private readonly scheduler: SchedulerRegistry,
     private readonly dispatcher: OutboxDispatcher,
     private readonly receipts: ReceiptPoller,
+    private readonly emails: InvitationEmailer,
     private readonly invitations: InvitationsService,
     private readonly auth: AuthService,
   ) {}
@@ -53,6 +58,17 @@ export class WorkerRunner
     );
     this.every('reclaim-stale', 30_000, () => this.dispatcher.reclaimStale());
     this.every('receipts', 30_000, () => this.receipts.runOnce());
+    // Same drain as the dispatcher: a full pass means more people waiting.
+    // People whose email was just refused wait out a retry delay, so they
+    // aren't picked again straight away.
+    this.every('invitation-emails', 60_000, async () => {
+      while (
+        !this.stopping &&
+        (await this.emails.runOnce()) === PEOPLE_PER_RUN
+      ) {
+        /* keep draining */
+      }
+    });
     this.every('expire-invitations', 5 * 60_000, () =>
       this.invitations.expireDue(),
     );

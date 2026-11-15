@@ -75,7 +75,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : 'The request could not be read';
     } else {
       this.logger.error(
-        JSON.stringify({ requestId, path: req.originalUrl }),
+        JSON.stringify({
+          requestId,
+          path: req.originalUrl.split('?')[0], // no query: it can carry a signed token
+        }),
         exception instanceof Error ? exception.stack : String(exception),
       );
     }

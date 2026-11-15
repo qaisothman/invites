@@ -22,7 +22,8 @@ export class InvitationsController {
   constructor(private readonly invitations: InvitationsService) {}
 
   // Limited per user per hour (the 'invites' quota): spam protection for the
-  // people being invited.
+  // people being invited, which also caps the invitation emails they get when
+  // push can't reach them.
   @Post()
   @Quota('invites')
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateInvitationDto) {

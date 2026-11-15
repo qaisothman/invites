@@ -76,7 +76,7 @@ export class DevicesService {
   // The phones that can show a push right now: signed in, notifications
   // allowed at their last report, and not an Android phone gone quiet long
   // enough to be hibernating. A user with none of these is unreachable by
-  // push.
+  // push, which is what makes them eligible for the invitation email.
   reachableFor(userIds: string[]): Promise<Device[]> {
     if (userIds.length === 0) return Promise.resolve([]);
     return this.devices

@@ -89,7 +89,7 @@ export class InvitationsService {
         userId: invitee.id,
         type: NotificationType.InvitationReceived,
         // The name and nothing else: pushes show on lock screens, so the
-        // message itself stays in the app.
+        // message itself stays in the app (and out of emails, too).
         title: `${inviter.displayName} invited you`,
         body: 'Tap to see the invitation',
         data: {

@@ -100,8 +100,9 @@ export class NotificationsService {
 
   // The user saw the thing the notification is about inside the app (for
   // example opened the invitation from their inbox). Counts as opened, and
-  // stops the push about something they've already seen. Not as delivered:
-  // delivered_at is only ever a phone confirming the push.
+  // stops the push and the invitation email about something they've already
+  // seen. Not as delivered: delivered_at is only ever a phone confirming the
+  // push.
   async markSeenByDedupeKey(manager: EntityManager, dedupeKey: string) {
     await manager.query(
       `UPDATE notifications

@@ -55,7 +55,9 @@ export class RequestIdMiddleware implements NestMiddleware {
             requestId: req.requestId,
             userId: req.user?.id,
             method: req.method,
-            path: req.originalUrl,
+            // Without the query string: the unsubscribe link in every
+            // invitation email carries its signature there.
+            path: req.originalUrl.split('?')[0],
             status: res.statusCode,
             ms: Math.round(seconds * 1000),
           }),

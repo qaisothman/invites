@@ -37,6 +37,7 @@ describe('validateEnv', () => {
     const production = {
       ...base,
       NODE_ENV: 'production',
+      API_PUBLIC_URL: 'https://api.example',
     };
 
     it('is required', () => {

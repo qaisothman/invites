@@ -1,8 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { MetricsService } from '../src/metrics/metrics.service';
 import { OutboxDispatcher } from '../src/notifications/dispatcher';
+import { InvitationEmailer } from '../src/notifications/invitation-emails';
+import { FakeEmailSender } from '../src/notifications/providers/email-sender';
 import { FakePushSender } from '../src/notifications/providers/fake-push.sender';
 import { NOT_SENT } from '../src/notifications/providers/push-sender';
 import type {
@@ -25,24 +27,31 @@ interface Row {
   status: string;
   attempts: number;
   transport_failures: number;
+  email_status: string;
   next_attempt_at: Date;
   last_error: string | null;
   sent_at: Date | null;
 }
 
 // The notification pipeline end to end: outbox -> dispatcher -> Expo (fake)
-// -> receipts, plus the failure modes each part exists for.
+// -> receipts -> the invitation email for invitees push can't reach, plus the
+// failure modes each part exists for.
 describe('Notification delivery (e2e)', () => {
   let app: TestApp;
   let alice: TestUser;
   let bob: TestUser;
   let push: FakePushSender;
+  let mail: FakeEmailSender;
   const http = () => request(app.getHttpServer());
   const db = () => app.get(DataSource);
   const dispatch = () => app.get(OutboxDispatcher).runOnce();
   const receipts = () => app.get(ReceiptPoller).runOnce();
+  const emails = () => app.get(InvitationEmailer).runOnce();
   // How many times a metric has counted an outcome since the app started.
-  const counted = async (metric: 'dispatched', outcome: string) =>
+  const counted = async (
+    metric: 'dispatched' | 'invitationEmails',
+    outcome: string,
+  ) =>
     (await app.get(MetricsService)[metric].get()).values.find(
       (v) => v.labels.outcome === outcome,
     )?.value ?? 0;
@@ -56,6 +65,7 @@ describe('Notification delivery (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     push = app.get(FakePushSender);
+    mail = app.get(FakeEmailSender);
   });
   beforeEach(async () => {
     await resetDatabase(app);
@@ -343,6 +353,61 @@ describe('Notification delivery (e2e)', () => {
     expect(await counted('dispatched', 'failed')).toBe(failedBefore);
   });
 
+  it('does not push an invitation withdrawn while it waited', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'flaky');
+    const { body } = await invite();
+    await dispatch();
+    expect((await notif()).status).toBe('pending');
+
+    await http()
+      .post(`/invitations/${body.id}/cancel`)
+      .set(auth(alice))
+      .expect(200);
+    push.setBehaviour(token, 'ok');
+    await db().query(`UPDATE notifications SET next_attempt_at = now()`);
+    await dispatch();
+    expect(push.sent).toHaveLength(0);
+    // Nothing was sent and nothing failed.
+    expect((await notif()).status).toBe('withdrawn');
+    await emails();
+    expect(mail.sent).toHaveLength(0);
+  });
+
+  it('gives up after the last attempt, and emails the invitee instead', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'flaky');
+    await invite();
+    await db().query(`UPDATE notifications SET transport_failures = 7`); // PUSH_MAX_ATTEMPTS is 8
+    await dispatch();
+    expect((await notif()).status).toBe('failed');
+
+    await emails();
+    expect(mail.sent).toHaveLength(1);
+    expect(mail.sent[0]).toMatchObject({
+      to: bob.email,
+      subject: 'Alice invited you',
+    });
+    expect(mail.sent[0].text).toMatch(/Open the invitation: .*\/i\//);
+    expect((await notif()).email_status).toBe('sent');
+  });
+
+  it('disables uninstalled devices and emails the person, once', async () => {
+    const token = await addDevice(app, bob);
+    push.setBehaviour(token, 'dead');
+    await invite();
+    await dispatch();
+    expect((await notif()).status).toBe('unreachable');
+    const [d] = (await db().query(`SELECT disabled_reason FROM devices`)) as {
+      disabled_reason: string;
+    }[];
+    expect(d.disabled_reason).toBe('DeviceNotRegistered');
+
+    await emails();
+    await emails(); // a second run must not email again
+    expect(mail.sent).toHaveLength(1);
+  });
+
   it('finds dead tokens from receipts when the send looked fine', async () => {
     const token = await addDevice(app, bob);
     push.setBehaviour(token, 'receipt_error');
@@ -457,6 +522,38 @@ describe('Notification delivery (e2e)', () => {
     });
   });
 
+  it('does not email someone whose phone can show the push', async () => {
+    await addDevice(app, bob);
+    await invite();
+    await dispatch();
+    // Sent but never confirmed: a phone that can show it got it, so push is
+    // the channel. One channel per notification, not both.
+    await emails();
+    expect(mail.sent).toHaveLength(0);
+    expect((await notif()).email_status).toBe('none');
+  });
+
+  it('pushes only to phones that can show it, and emails when none can', async () => {
+    const allowed = await addDevice(app, bob);
+    await addDevice(app, bob, undefined, { notifications: 'off' });
+    await invite();
+    await dispatch();
+    expect(push.sent.map((m) => m.to)).toEqual([allowed]);
+
+    // Notifications turned off on the last phone: nothing is pushed at all.
+    await resetDatabase(app);
+    alice = await registerUser(app, { displayName: 'Alice' });
+    bob = await registerUser(app, { displayName: 'Bob' });
+    await addDevice(app, bob, undefined, { notifications: 'off' });
+    await addDevice(app, bob, undefined, { notifications: 'not_asked' });
+    await invite();
+    await dispatch();
+    expect(push.sent).toHaveLength(0);
+    expect((await notif()).status).toBe('unreachable');
+    await emails();
+    expect(mail.sent).toHaveLength(1);
+  });
+
   it('treats an Android phone silent for 90 days as unreachable', async () => {
     await addDevice(app, bob, undefined, { platform: 'android' });
     await db().query(
@@ -474,6 +571,216 @@ describe('Notification delivery (e2e)', () => {
     );
     await dispatch();
     expect(push.sent).toHaveLength(1);
+  });
+
+  it('waits 15 minutes before emailing, and skips an invitation already seen', async () => {
+    // Tests run with EMAIL_AFTER_SECONDS=0; this one uses the real 15 minutes.
+    const config = app.get(ConfigService);
+    const real = config.get.bind(config) as (k: string, o?: unknown) => unknown;
+    const spy = jest
+      .spyOn(config, 'get')
+      .mockImplementation((k: string, o?: unknown) =>
+        k === 'EMAIL_AFTER_SECONDS' ? 900 : real(k, o),
+      );
+    try {
+      const carol = await registerUser(app, { displayName: 'Carol' });
+      const { body } = await invite();
+      await http()
+        .post('/invitations')
+        .set(auth(carol))
+        .send({ inviteeId: bob.id })
+        .expect(201);
+      await dispatch();
+      await dispatch();
+      const age = (i: string) =>
+        db().query(
+          `UPDATE notifications SET created_at = now() - interval '${i}'`,
+        );
+
+      await age('14 minutes');
+      await emails();
+      expect(mail.sent).toHaveLength(0); // not yet
+
+      // Bob opens Alice's invitation in the app; Carol's he hasn't seen.
+      await http().get(`/invitations/${body.id}`).set(auth(bob)).expect(200);
+      await age('16 minutes');
+      await emails();
+      expect(mail.sent).toHaveLength(1);
+      expect(mail.sent[0].subject).toBe('Carol invited you');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('puts everything waiting in one email, and sends at most one a day', async () => {
+    const carol = await registerUser(app, { displayName: 'Carol' });
+    await invite();
+    await http()
+      .post('/invitations')
+      .set(auth(carol))
+      .send({ inviteeId: bob.id })
+      .expect(201);
+    await dispatch();
+    await emails();
+    expect(mail.sent).toHaveLength(1);
+    expect(mail.sent[0].subject).toBe('You have 2 new invitations');
+    expect(mail.sent[0].text).toMatch(/Alice invited you/);
+    expect(mail.sent[0].text).toMatch(/Carol invited you/);
+
+    // A third invitation the same day waits for tomorrow's email.
+    const dave = await registerUser(app, { displayName: 'Dave' });
+    await http()
+      .post('/invitations')
+      .set(auth(dave))
+      .send({ inviteeId: bob.id })
+      .expect(201);
+    await dispatch();
+    await emails();
+    expect(mail.sent).toHaveLength(1);
+
+    await db().query(
+      `UPDATE users SET last_invitation_email_at = now() - interval '25 hours'`,
+    );
+    await emails();
+    expect(mail.sent).toHaveLength(2);
+    expect(mail.sent[1].subject).toBe('Dave invited you');
+  });
+
+  it('retries an email the provider refused after a growing wait, then gives up after five tries', async () => {
+    mail.failFor.add(bob.email);
+    await invite();
+    await dispatch();
+    await emails();
+    const one = async () =>
+      (
+        (await db().query(
+          `SELECT email_status, email_attempts, email_error FROM notifications ORDER BY created_at`,
+        )) as {
+          email_status: string;
+          email_attempts: number;
+          email_error: string;
+        }[]
+      )[0];
+    expect(await one()).toMatchObject({
+      email_status: 'none', // queued for a retry
+      email_attempts: 1,
+      email_error: 'simulated email failure',
+    });
+    // Not straight away: the next try waits 5 minutes, then 10, 20 and 40.
+    const age = (mins: number) =>
+      db().query(
+        `UPDATE notifications SET email_at = email_at - make_interval(mins => $1)`,
+        [mins],
+      );
+    for (const [i, wait] of [5, 10, 20, 40].entries()) {
+      await age(wait - 1);
+      await emails();
+      expect((await one()).email_attempts).toBe(i + 1);
+      await age(1);
+      await emails();
+      expect((await one()).email_attempts).toBe(i + 2);
+    }
+    expect(await one()).toMatchObject({
+      email_status: 'failed',
+      email_attempts: 5,
+    });
+    expect(mail.sent).toHaveLength(0);
+
+    // Nothing reached Bob, so his day isn't used up: a new invitation goes
+    // out once the provider recovers, and the given-up one stays given up.
+    mail.failFor.clear();
+    const carol = await registerUser(app, { displayName: 'Carol' });
+    await http()
+      .post('/invitations')
+      .set(auth(carol))
+      .send({ inviteeId: bob.id })
+      .expect(201);
+    await dispatch();
+    await emails();
+    expect(mail.sent.map((m) => m.subject)).toEqual(['Carol invited you']);
+  });
+
+  it('ignores a late email outcome from a worker whose claim was taken over', async () => {
+    mail.failFor.add(bob.email);
+    await invite();
+    await dispatch();
+    // While this worker's send hangs, its lease runs out and another worker
+    // claims the invitation and Bob's day again.
+    const real = mail.send.bind(mail);
+    const spy = jest.spyOn(mail, 'send').mockImplementation(async (m) => {
+      await db().query(
+        `UPDATE notifications SET email_attempts = email_attempts + 1, email_at = now()`,
+      );
+      await db().query(
+        `UPDATE users SET last_invitation_email_at = now() WHERE id = $1`,
+        [bob.id],
+      );
+      return real(m);
+    });
+    const retryBefore = await counted('invitationEmails', 'retry');
+    try {
+      await emails();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await counted('invitationEmails', 'retry')).toBe(retryBefore);
+    const [row] = (await db().query(
+      `SELECT n.email_status, u.last_invitation_email_at
+       FROM notifications n JOIN users u ON u.id = n.user_id`,
+    )) as { email_status: string; last_invitation_email_at: Date | null }[];
+    expect(row.email_status).toBe('pending');
+    expect(row.last_invitation_email_at).toBeInstanceOf(Date);
+  });
+
+  it('puts an email claim from a crashed worker back in the queue', async () => {
+    await invite();
+    await dispatch();
+    // A worker claimed it and died before recording the outcome.
+    await db().query(
+      `UPDATE notifications SET email_status = 'pending', email_at = now() - interval '11 minutes'`,
+    );
+    await db().query(
+      `UPDATE users SET last_invitation_email_at = now() - interval '11 minutes' WHERE id = $1`,
+      [bob.id],
+    );
+    await emails();
+    expect(mail.sent).toHaveLength(1);
+    expect((await notif()).email_status).toBe('sent');
+  });
+
+  it('gives back the day of someone left with nothing to claim', async () => {
+    const { body } = await invite();
+    await dispatch();
+    // Alice cancels between the emailer picking Bob and claiming his day,
+    // so none of his invitations is left to claim.
+    const real = Object.getOwnPropertyDescriptor(
+      EntityManager.prototype,
+      'query',
+    )?.value as (this: EntityManager, ...args: unknown[]) => Promise<unknown>;
+    const spy = jest
+      .spyOn(EntityManager.prototype, 'query')
+      .mockImplementation(async function (
+        this: EntityManager,
+        sql: string,
+        params?: unknown[],
+      ) {
+        if (sql.includes('UPDATE users SET last_invitation_email_at = now()'))
+          await db().query(
+            `UPDATE invitations SET status = 'cancelled' WHERE id = $1`,
+            [body.id],
+          );
+        return real.call(this, sql, params);
+      });
+    try {
+      expect(await emails()).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
+    const [u] = (await db().query(
+      `SELECT last_invitation_email_at FROM users WHERE id = $1`,
+      [bob.id],
+    )) as { last_invitation_email_at: Date | null }[];
+    expect(u.last_invitation_email_at).toBeNull();
   });
 
   it('sends each notification exactly once with four workers racing', async () => {

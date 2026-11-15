@@ -151,7 +151,8 @@ export class ReceiptPoller {
             RETRYABLE_PROVIDER_ERRORS,
           ],
         );
-        // Anything else rejected is final: mark it failed.
+        // Anything else rejected is final: mark it failed, which makes an
+        // invitation eligible for the email.
         await m.query(
           `UPDATE notifications n SET status = 'failed',
              last_error = 'all receipts rejected', updated_at = now()

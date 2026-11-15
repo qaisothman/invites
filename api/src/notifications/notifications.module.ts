@@ -5,6 +5,8 @@ import type { AppConfig } from '../config/env.validation';
 import { DevicesModule } from '../devices/devices.module';
 import { AckTokens } from './ack-tokens';
 import { OutboxDispatcher } from './dispatcher';
+import { EmailLinks } from './email-links';
+import { InvitationEmailer } from './invitation-emails';
 import { Notification } from './notification.entity';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
@@ -26,6 +28,8 @@ import { ReceiptPoller } from './receipts';
     AckTokens,
     OutboxDispatcher,
     ReceiptPoller,
+    InvitationEmailer,
+    EmailLinks,
     ExpoPushSender,
     FakePushSender,
     LogEmailSender,
@@ -59,6 +63,11 @@ import { ReceiptPoller } from './receipts';
       },
     },
   ],
-  exports: [NotificationsService, OutboxDispatcher, ReceiptPoller],
+  exports: [
+    NotificationsService,
+    OutboxDispatcher,
+    ReceiptPoller,
+    InvitationEmailer,
+  ],
 })
 export class NotificationsModule {}
