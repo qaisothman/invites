@@ -1,11 +1,17 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString, Length, ValidateIf } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsString,
+  Length,
+  ValidateIf,
+} from 'class-validator';
 import { IsDisplayName } from './display-name';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
-// displayName may be left out, but not sent as null: the column is NOT NULL.
+// Both fields may be left out, but not sent as null: the columns are NOT NULL.
 const present = (_: object, value: unknown) => value !== undefined;
 
 export class UpdateMeDto {
@@ -15,6 +21,10 @@ export class UpdateMeDto {
   @Length(1, 80)
   @IsDisplayName()
   displayName?: string;
+
+  @ValidateIf(present)
+  @IsBoolean()
+  invitationEmails?: boolean;
 }
 
 export class LookupUserQuery {

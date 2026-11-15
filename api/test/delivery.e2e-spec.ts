@@ -646,6 +646,50 @@ describe('Notification delivery (e2e)', () => {
     expect(mail.sent[1].subject).toBe('Dave invited you');
   });
 
+  it('respects the opt-out from Profile and from the link in the email', async () => {
+    // Off from Profile: push couldn't reach them, and that's recorded.
+    await http()
+      .patch('/users/me')
+      .set(auth(bob))
+      .send({ invitationEmails: false })
+      .expect(200);
+    await invite();
+    await dispatch();
+    await emails();
+    expect(mail.sent).toHaveLength(0);
+    expect((await notif()).email_status).toBe('opted_out');
+
+    // Back on, then off again from the email's own link.
+    await http()
+      .patch('/users/me')
+      .set(auth(bob))
+      .send({ invitationEmails: true })
+      .expect(200);
+    await db().query(`UPDATE notifications SET email_status = 'none'`);
+    await emails();
+    const [email] = mail.sent;
+    expect(email.headers['List-Unsubscribe-Post']).toBe(
+      'List-Unsubscribe=One-Click',
+    );
+    const link = new URL(email.headers['List-Unsubscribe'].slice(1, -1));
+    const path = `${link.pathname}${link.search}`;
+
+    // GET only asks: mail scanners open links on their own.
+    const page = await http().get(path).expect(200);
+    expect(page.text).toMatch(/<form method="post">/);
+    const still = await http().get('/users/me').set(auth(bob)).expect(200);
+    expect(still.body.invitationEmails).toBe(true); // the GET changed nothing
+    const broken = await http()
+      .get(`${link.pathname}?u=${bob.id}&t=${'x'.repeat(43)}`)
+      .expect(400);
+    expect(broken.text).toMatch(/no longer works/);
+    const forged = `${link.pathname}?u=${bob.id}&t=${'x'.repeat(43)}`;
+    await http().post(forged).expect(400);
+    await http().post(path).expect(200); // what one-tap unsubscribe calls
+    const me = await http().get('/users/me').set(auth(bob)).expect(200);
+    expect(me.body.invitationEmails).toBe(false);
+  });
+
   it('retries an email the provider refused after a growing wait, then gives up after five tries', async () => {
     mail.failFor.add(bob.email);
     await invite();

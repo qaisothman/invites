@@ -6,6 +6,7 @@ import { DevicesModule } from '../devices/devices.module';
 import { AckTokens } from './ack-tokens';
 import { OutboxDispatcher } from './dispatcher';
 import { EmailLinks } from './email-links';
+import { EmailsController } from './emails.controller';
 import { InvitationEmailer } from './invitation-emails';
 import { Notification } from './notification.entity';
 import { NotificationsController } from './notifications.controller';
@@ -22,7 +23,7 @@ import { ReceiptPoller } from './receipts';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Notification]), DevicesModule],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, EmailsController],
   providers: [
     NotificationsService,
     AckTokens,

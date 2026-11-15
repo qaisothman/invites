@@ -51,6 +51,18 @@ describe('Auth (e2e)', () => {
     }
   });
 
+  it('refuses null for a profile field', async () => {
+    const u = await registerUser(app);
+    for (const body of [{ displayName: null }, { invitationEmails: null }]) {
+      const res = await http()
+        .patch('/users/me')
+        .set(auth(u))
+        .send(body)
+        .expect(400);
+      expect(res.body.error.code).toBe('validation_failed');
+    }
+  });
+
   it('rejects a second account with the same email, in any case', async () => {
     await registerUser(app, { email: 'same@example.com' });
     const res = await http()
