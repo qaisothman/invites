@@ -37,6 +37,7 @@ describe('App skeleton (e2e)', () => {
   });
 
   it('returns every error in one shape, with the request id', async () => {
+    // Unknown routes are a 404 before any guard runs.
     const res = await request(app.getHttpServer())
       .get('/does-not-exist')
       .expect(404);

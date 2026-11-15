@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import {
+  auth,
   createTestApp,
   registerUser,
   resetDatabase,
@@ -16,6 +17,19 @@ describe('Auth (e2e)', () => {
   });
   beforeEach(() => resetDatabase(app));
   afterAll(() => app.close());
+
+  it('registers, then reads the profile with the access token', async () => {
+    const u = await registerUser(app, { displayName: 'Ada' });
+    const me = await http().get('/users/me').set(auth(u)).expect(200);
+    expect(me.body).toMatchObject({
+      id: u.id,
+      displayName: 'Ada',
+      invitationEmails: true,
+      role: 'member',
+    });
+    expect(me.body).not.toHaveProperty('passwordHash');
+    expect(me.body).not.toHaveProperty('lastInvitationEmailAt');
+  });
 
   it('refuses display names with an http(s) or www link, a control character or a line separator', async () => {
     for (const displayName of [
@@ -79,6 +93,16 @@ describe('Auth (e2e)', () => {
     expect(wrong.body.error).toEqual(unknown.body.error);
   });
 
+  it('answers 401 without a token, and to a token that is not a JWT', async () => {
+    const res = await http().get('/users/me').expect(401);
+    expect(res.body.error.code).toBe('missing_token');
+    const bad = await http()
+      .get('/users/me')
+      .set('authorization', 'Bearer not-a-jwt')
+      .expect(401);
+    expect(bad.body.error.code).toBe('invalid_token');
+  });
+
   const refresh = (refreshToken: string) =>
     http().post('/auth/refresh').send({ refreshToken });
 
@@ -107,6 +131,10 @@ describe('Auth (e2e)', () => {
     const retried = await refresh(u.refreshToken).expect(200);
     const current = retried.body.refreshToken as string;
     expect(current).not.toBe(lost);
+    await http()
+      .get('/users/me')
+      .set('authorization', `Bearer ${retried.body.accessToken as string}`)
+      .expect(200);
     const live = await app
       .get(DataSource)
       .query(

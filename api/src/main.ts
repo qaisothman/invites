@@ -10,6 +10,9 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService<AppConfig, true>);
 
+  // The client IP the per-IP rate limits count: from X-Forwarded-For only as
+  // far as TRUST_PROXY_HOPS proxies vouch for it, else the socket address.
+  app.set('trust proxy', config.get('TRUST_PROXY_HOPS', { infer: true }));
   app.use(helmet());
   // Lets in-flight work and the database pool close cleanly on SIGTERM
   // instead of being cut off mid-job during a deploy.

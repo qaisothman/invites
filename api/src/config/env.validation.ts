@@ -32,6 +32,16 @@ export class EnvironmentVariables {
   @Max(65535)
   PORT: number = 3000;
 
+  // Proxies in front of the API that set X-Forwarded-For: 0 when clients
+  // connect directly (locally, in compose), 1 behind one load balancer. Too
+  // high lets a client pick its own rate-limit key; too low makes every
+  // client share the proxy's. Required in production, where 0 is a choice
+  // to make on purpose, not a default to fall into.
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  TRUST_PROXY_HOPS: number = 0;
+
   // One JSON log line per request. Tests and benchmarks turn it off.
   @Transform(toBool)
   @IsBoolean()
@@ -77,6 +87,17 @@ export class EnvironmentVariables {
   @Min(10)
   @Max(17)
   PASSWORD_HASH_COST: number = 15;
+
+  // ---- Rate limits
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_PER_MINUTE: number = 120;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  AUTH_PER_MINUTE: number = 10;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -90,6 +111,14 @@ export function validateEnv(config: Record<string, unknown>) {
       )
       .join('; ');
     throw new Error(`Invalid environment: ${problems}`);
+  }
+  if (
+    env.NODE_ENV === 'production' &&
+    (config.TRUST_PROXY_HOPS === undefined || config.TRUST_PROXY_HOPS === '')
+  ) {
+    throw new Error(
+      'Invalid environment: TRUST_PROXY_HOPS must be set in production (0 when clients connect directly)',
+    );
   }
   return env;
 }

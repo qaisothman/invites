@@ -67,3 +67,5 @@ export async function registerUser(
     refreshToken: body.refreshToken,
   };
 }
+
+export const auth = (u: TestUser) => ({ authorization: `Bearer ${u.token}` });

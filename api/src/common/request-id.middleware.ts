@@ -53,6 +53,7 @@ export class RequestIdMiddleware implements NestMiddleware {
         this.logger.log(
           JSON.stringify({
             requestId: req.requestId,
+            userId: req.user?.id,
             method: req.method,
             path: req.originalUrl,
             status: res.statusCode,
