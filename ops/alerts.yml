@@ -1,4 +1,5 @@
-# Each alert pages only for something a person must act on.
+# Alerts tied to the SLOs in docs/06-slos-and-alerts.md. Each one pages only
+# for something a person must act on; each links to a runbook section.
 groups:
   - name: invites
     rules:
@@ -9,6 +10,7 @@ groups:
         labels: { severity: page }
         annotations:
           summary: Push notifications are queuing up
+          runbook: docs/05-runbook.md#outbox-backlog
 
       - alert: PushProviderFailing
         # More than 5% of send attempts are being retried or failing.
@@ -19,6 +21,7 @@ groups:
         labels: { severity: page }
         annotations:
           summary: Expo is rejecting or timing out on sends
+          runbook: docs/05-runbook.md#expo-outage
 
       - alert: ScrapeFailing
         # Prometheus can't reach the API or the worker: the process is down,
@@ -29,6 +32,7 @@ groups:
         labels: { severity: page }
         annotations:
           summary: Prometheus cannot scrape the API or the worker
+          runbook: docs/05-runbook.md#scrape-failing
 
       - alert: DeadTokenSpike
         # Receipts reporting errors well above normal: a bad build, or APNs/FCM
@@ -40,6 +44,7 @@ groups:
         labels: { severity: ticket }
         annotations:
           summary: Many push receipts are errors
+          runbook: docs/05-runbook.md#receipt-errors
 
       - alert: ApiErrorRate
         expr: |
@@ -49,6 +54,7 @@ groups:
         labels: { severity: page }
         annotations:
           summary: More than 1% of API requests are failing
+          runbook: docs/05-runbook.md#api-errors
 
       - alert: ApiLatencyHigh
         expr: |
@@ -58,6 +64,7 @@ groups:
         labels: { severity: ticket }
         annotations:
           summary: p95 API latency above 300 ms
+          runbook: docs/05-runbook.md#api-latency
 
       - alert: InvitationEmailSurge
         # About half of phones never allow notifications, so the count of
@@ -78,6 +85,7 @@ groups:
         labels: { severity: ticket }
         annotations:
           summary: Far more notifications than last week found no phone to show them
+          runbook: docs/05-runbook.md#email-surge
 
       - alert: InvitationEmailsStalled
         # An invitation that should have been emailed has waited 10 minutes past
@@ -88,6 +96,7 @@ groups:
         labels: { severity: ticket }
         annotations:
           summary: Invitation emails are not going out
+          runbook: docs/05-runbook.md#email-stalled
 
       - alert: InvitationEmailFailures
         # The provider refused an email 5 times and it was given up: provider
@@ -97,3 +106,4 @@ groups:
         labels: { severity: ticket }
         annotations:
           summary: Invitation emails are failing
+          runbook: docs/05-runbook.md#email-failures
