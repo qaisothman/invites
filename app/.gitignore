@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Local device builds (README: Real push on an iPhone)
+/build/

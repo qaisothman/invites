@@ -7,6 +7,7 @@ import { useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/queries';
 import { session, useSessionStatus } from '@/auth/session';
+import { usePushNotifications } from '@/push/usePushNotifications';
 
 // A deep link straight to /i/<id> still gets the tabs underneath it, so Back
 // goes somewhere sensible.
@@ -21,6 +22,8 @@ export default function RootLayout() {
   const status = useSessionStatus();
   const scheme = useColorScheme();
   const signedIn = status === 'signedIn';
+
+  usePushNotifications(signedIn);
 
   useEffect(() => {
     if (status === 'loading') return;

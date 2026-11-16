@@ -1,6 +1,6 @@
 # Benchmarks
 
-All numbers were measured on one laptop: Apple M3 Max (14 cores, 36 GB), Node 24, Postgres 15 with default settings (`shared_buffers` 128 MB), the client, the API and the database on the same machine. Production hardware differs; the **shapes** are what carry over. Raw results are the JSON files in this folder. Reproduce as in [Run and test it locally](../00-run-and-test-locally.md#4-optional), which sets `BENCH_DATABASE_URL`; each benchmark creates and migrates its own database. That guide's Postgres is 16 in Docker, so expect different absolute figures from these. `http-bcryptjs.json` is a one-off run of the same HTTP benchmark with password hashing switched to `bcryptjs` at cost 12, for comparison.
+All numbers were measured on one laptop: Apple M3 Max (14 cores, 36 GB), Node 24, Postgres 15 with default settings (`shared_buffers` 128 MB), the client, the API and the database on the same machine. Production hardware differs; the **shapes** are what carry over. Raw results are the JSON files in this folder. Reproduce as in [Run and test it locally](../00-run-and-test-locally.md#5-optional), which sets `BENCH_DATABASE_URL`; each benchmark creates and migrates its own database. That guide's Postgres is 16 in Docker, so expect different absolute figures from these. `http-bcryptjs.json` is a one-off run of the same HTTP benchmark with password hashing switched to `bcryptjs` at cost 12, for comparison.
 
 ## 1. Hot queries as the tables grow (`db-scaling.json`)
 

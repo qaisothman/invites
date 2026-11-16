@@ -43,6 +43,7 @@ SMS costs about 120 to 560 times more per message than email, needs registration
 - **An Android phone quiet for 90 days but still able to show a push gets an email instead.** That mistake is cheap and errs on the safe side.
 - **`notifications` is optional on `POST /devices`** and defaults to `allowed`, so a report without it counts as a phone that can show the push.
 - **A known limit:** a phone whose user turns notifications off in Settings and never opens the app again keeps its last `allowed` report. On iOS nothing ages it out, so its pushes reach no one and no email follows until the app next opens.
+- **A second known limit:** "signed in" means the phone's device row is active, and only Sign out in Profile, done online, disables it. A phone whose session expired or was revoked, or that signed out offline, keeps its row and its pushes until someone signs in on it (the upsert then moves the row to that account). Closing it means tying a session to its device and disabling the row when the session ends.
 - **Deliberately not built:**
   - SMS;
   - email for "your invitation was accepted" (the inviter will see it in the app);

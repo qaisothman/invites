@@ -48,7 +48,7 @@ Gmail, Yahoo and Outlook.com reject or junk mail that fails these checks.
 ## 6. Before the first real email
 
 - [ ] **Send to seed inboxes** at Gmail, Outlook.com, iCloud and Yahoo. Check `Authentication-Results` (SPF, DKIM and DMARC pass) and that the email lands in the inbox.
-- [ ] **Tap the invitation link on a phone with the app installed.** It must open the invitation through the universal link (`APP_LINK_BASE/i/<id>`).
+- [ ] **Tap the invitation link on a phone with the app installed.** It must open the invitation through the universal link (`APP_LINK_BASE/i/<id>`). That needs the real domain in `APP_LINK_BASE` and `app/app.config.ts`, and the two `/.well-known` files served from it ([app README, Deep links](../app/README.md#deep-links)).
 - [ ] **Serve a page at `APP_LINK_BASE/i/<id>` for people without the app:** who invited them, and links to the app stores. Check it in a desktop browser and on a phone without the app.
 - [ ] **Unsubscribe from a mail app's one-tap button,** then check that `invitation_emails` is false.
 - [ ] **Watch `invitation_emails_total{outcome}`** and the email alerts, `InvitationEmailSurge`, `InvitationEmailFailures` and `InvitationEmailsStalled` ([SLOs and alerts](06-slos-and-alerts.md)), for the first week.
