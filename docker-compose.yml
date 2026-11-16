@@ -1,9 +1,75 @@
-# Local Postgres for anyone without one installed: docker compose up -d
+# Local development:   docker compose up -d --wait db
+# The whole system:    docker compose --profile stack up --build
+# Ports taken locally? Put DB_PORT=5433 and API_PORT=3300 in .env next to this
+# file, or in front of the command.
+#
+# The stack mirrors how it would run in production: one image run as three
+# roles (migrate once, then API and worker side by side), plus Prometheus
+# scraping both.
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_DB: nest_invites
+    # The benchmarks' parallel queries need more shared memory than Docker's
+    # 64 MB default.
+    shm_size: 256mb
+    # This machine only: the database takes any connection without a password.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:${DB_PORT:-5432}:5432'
+    healthcheck:
+      # Over TCP: during first-time setup Postgres answers on its socket
+      # before it accepts network connections.
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-h', '127.0.0.1']
+      interval: 2s
+      retries: 30
+
+  migrate:
+    profiles: [stack]
+    build: ./api
+    image: invites-api:local # one image, three roles
+    command: ['npm', 'run', 'migration:run:prod']
+    environment: &env
+      DATABASE_URL: postgres://postgres@db:5432/nest_invites
+      JWT_SECRET: compose-only-secret-change-me-0123456789
+      PUSH_DRIVER: fake
+      FAKE_PUSH_LATENCY_MS: '150'
+      NODE_ENV: development
+      # Clients reach the API directly, with no proxy in front.
+      TRUST_PROXY_HOPS: '0'
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    profiles: [stack]
+    build: ./api
+    image: invites-api:local # one image, three roles
+    environment:
+      <<: *env
+      WORKERS_ENABLED: 'false'
+    ports:
+      - '${API_PORT:-3000}:3000'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    profiles: [stack]
+    build: ./api
+    image: invites-api:local # one image, three roles
+    environment:
+      <<: *env
+      WORKERS_ENABLED: 'true'
+      PORT: '3001'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  prometheus:
+    profiles: [stack]
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - '9090:9090'
+    depends_on: [api, worker]

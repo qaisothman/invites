@@ -1,0 +1,49 @@
+name: CI
+
+# Every push to any branch, so each stacked feature branch gets its own run.
+# A pull request from a branch of this repository is already covered by that
+# branch's push run; pull_request runs only for one from a fork.
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: nest_invites_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgres://postgres@localhost:5432/nest_invites_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint "{src,test}/**/*.ts"
+      - run: npm test
+      - run: npm run test:e2e
+      # A migration that's missing from the entities (or vice versa) fails here.
+      - name: Schema matches the migrations
+        run: |
+          DATABASE_URL=$TEST_DATABASE_URL npm run typeorm -- migration:run
+          DATABASE_URL=$TEST_DATABASE_URL npm run typeorm -- migration:generate src/database/migrations/Drift --dryrun --check
+      - run: docker build -t invites-api:${{ github.sha }} .
