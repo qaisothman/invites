@@ -1,7 +1,20 @@
-// End-to-end tests run against their own database. Values set here win over
-// .env, because ConfigModule never overwrites a variable that already exists.
-process.env.NODE_ENV = 'test';
-process.env.DATABASE_URL =
-  process.env.TEST_DATABASE_URL ??
-  'postgres://localhost:5432/nest_invites_test';
-process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters';
+// End-to-end tests run against their own database with fake providers.
+// Values set here win over .env, because ConfigModule never overwrites a
+// variable that already exists.
+Object.assign(process.env, {
+  NODE_ENV: 'test',
+  DATABASE_URL:
+    process.env.TEST_DATABASE_URL ??
+    'postgres://localhost:5432/nest_invites_test',
+  JWT_SECRET: 'test-secret-that-is-at-least-32-characters',
+  PASSWORD_HASH_COST: '10', // fast hashing in tests; production uses 15
+  WORKERS_ENABLED: 'false', // tests drive the workers by hand
+  PUSH_DRIVER: 'fake',
+  EMAIL_DRIVER: 'fake',
+  RECEIPT_DELAY_SECONDS: '0',
+  EMAIL_AFTER_SECONDS: '0',
+  THROTTLE_PER_MINUTE: '100000',
+  AUTH_PER_MINUTE: '100000',
+  INVITES_PER_HOUR: '100000',
+  LOG_REQUESTS: 'false',
+});

@@ -32,4 +32,16 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    // supertest types every response body as `any`; asserting on it is the
+    // point of an e2e test, so the unsafe-any rules only add noise there.
+    files: ['test/**/*.ts', 'src/**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+    },
+  },
 );

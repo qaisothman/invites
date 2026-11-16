@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ensureRequestId } from './request-id.middleware';
 
 const CODE_BY_STATUS: Record<number, string> = {
   400: 'bad_request',
@@ -15,7 +16,16 @@ const CODE_BY_STATUS: Record<number, string> = {
   404: 'not_found',
   409: 'conflict',
   410: 'gone',
+  413: 'payload_too_large',
   429: 'rate_limited',
+};
+
+// What Express's body parser throws for a body it won't read (too large, an
+// encoding it doesn't support): not an HttpException, but a 4xx status of
+// its own.
+const isClientError = (e: unknown): e is { status: number } => {
+  const status = (e as { status?: unknown } | null)?.status;
+  return typeof status === 'number' && status >= 400 && status < 500;
 };
 
 // Catches everything thrown anywhere in the request (guards, pipes,
@@ -31,6 +41,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
+    const requestId = ensureRequestId(req, res);
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'internal_error';
@@ -55,16 +66,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
         if (b.code) code = b.code;
       }
+    } else if (isClientError(exception)) {
+      status = exception.status;
+      code = CODE_BY_STATUS[status] ?? 'bad_request';
+      message =
+        status === HttpStatus.PAYLOAD_TOO_LARGE
+          ? 'The request body is too large'
+          : 'The request could not be read';
     } else {
       this.logger.error(
-        JSON.stringify({ requestId: req.requestId, path: req.originalUrl }),
+        JSON.stringify({
+          requestId,
+          path: req.originalUrl.split('?')[0], // no query: it can carry a signed token
+        }),
         exception instanceof Error ? exception.stack : String(exception),
       );
     }
 
     res.status(status).json({
       error: { code, message, ...(details ? { details } : {}) },
-      requestId: req.requestId,
+      requestId,
     });
   }
 }
