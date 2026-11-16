@@ -1,0 +1,62 @@
+{
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 14,
+    "memoryGb": 36,
+    "node": "v24.21.0",
+    "postgres": "15.14 (Homebrew)",
+    "note": "Laptop, Postgres on the same machine, default Postgres settings (shared_buffers 128MB).",
+    "date": "2026-11-15T01:48:36.233Z"
+  },
+  "runsPerQuery": 15,
+  "results": [
+    {
+      "rows": 10000,
+      "seedSeconds": 0.39,
+      "claimWithIndexMs": 3.1,
+      "claimWithoutIndexMs": 3.8,
+      "emailScanMs": 1.24,
+      "inboxPageMs": 0.27,
+      "funnelOneDayMs": 0.34,
+      "funnelThirtyDaysMs": 3.41,
+      "tableMb": "8",
+      "dueIndexKb": "16"
+    },
+    {
+      "rows": 100000,
+      "seedSeconds": 3.416,
+      "claimWithIndexMs": 2.37,
+      "claimWithoutIndexMs": 13.03,
+      "emailScanMs": 4.01,
+      "inboxPageMs": 0.3,
+      "funnelOneDayMs": 11.6,
+      "funnelThirtyDaysMs": 30.05,
+      "tableMb": "53",
+      "dueIndexKb": "32"
+    },
+    {
+      "rows": 500000,
+      "seedSeconds": 15.292,
+      "claimWithIndexMs": 2.01,
+      "claimWithoutIndexMs": 56.47,
+      "emailScanMs": 5.11,
+      "inboxPageMs": 0.25,
+      "funnelOneDayMs": 11.16,
+      "funnelThirtyDaysMs": 164.29,
+      "tableMb": "255",
+      "dueIndexKb": "40"
+    },
+    {
+      "rows": 2000000,
+      "seedSeconds": 116.035,
+      "claimWithIndexMs": 2.29,
+      "claimWithoutIndexMs": 210.52,
+      "emailScanMs": 7.06,
+      "inboxPageMs": 0.29,
+      "funnelOneDayMs": 80.85,
+      "funnelThirtyDaysMs": 650.79,
+      "tableMb": "1008",
+      "dueIndexKb": "40"
+    }
+  ]
+}

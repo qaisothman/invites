@@ -1,0 +1,145 @@
+{
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 14,
+    "memoryGb": 36,
+    "node": "v24.21.0",
+    "postgres": "15.14 (Homebrew)",
+    "note": "Laptop, Postgres on the same machine, default Postgres settings (shared_buffers 128MB).",
+    "date": "2026-11-15T01:21:52.429Z"
+  },
+  "process": "one Node process, DB pool 20",
+  "durationSeconds": 10,
+  "results": [
+    {
+      "endpoint": "GET /health/ready",
+      "connections": 10,
+      "requestsPerSecond": 19701,
+      "p50ms": 0,
+      "p90ms": 0,
+      "p99ms": 1,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /health/ready",
+      "connections": 50,
+      "requestsPerSecond": 18763,
+      "p50ms": 2,
+      "p90ms": 3,
+      "p99ms": 4,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /health/ready",
+      "connections": 100,
+      "requestsPerSecond": 17577,
+      "p50ms": 5,
+      "p90ms": 6,
+      "p99ms": 8,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /users/me",
+      "connections": 10,
+      "requestsPerSecond": 9364,
+      "p50ms": 0,
+      "p90ms": 1,
+      "p99ms": 2,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /users/me",
+      "connections": 50,
+      "requestsPerSecond": 8965,
+      "p50ms": 5,
+      "p90ms": 6,
+      "p99ms": 9,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /users/me",
+      "connections": 100,
+      "requestsPerSecond": 8716,
+      "p50ms": 11,
+      "p90ms": 12,
+      "p99ms": 14,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /invitations (inbox page)",
+      "connections": 10,
+      "requestsPerSecond": 2035,
+      "p50ms": 4,
+      "p90ms": 6,
+      "p99ms": 7,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /invitations (inbox page)",
+      "connections": 50,
+      "requestsPerSecond": 2073,
+      "p50ms": 23,
+      "p90ms": 26,
+      "p99ms": 29,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "GET /invitations (inbox page)",
+      "connections": 100,
+      "requestsPerSecond": 2036,
+      "p50ms": 48,
+      "p90ms": 51,
+      "p99ms": 60,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "POST /invitations",
+      "connections": 10,
+      "requestsPerSecond": 2304,
+      "p50ms": 4,
+      "p90ms": 5,
+      "p99ms": 8,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "POST /invitations",
+      "connections": 50,
+      "requestsPerSecond": 2351,
+      "p50ms": 20,
+      "p90ms": 22,
+      "p99ms": 56,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "POST /invitations",
+      "connections": 100,
+      "requestsPerSecond": 2306,
+      "p50ms": 41,
+      "p90ms": 45,
+      "p99ms": 121,
+      "non2xx": 0,
+      "errors": 0
+    },
+    {
+      "endpoint": "POST /auth/login (scrypt, cost 15)",
+      "connections": 10,
+      "requestsPerSecond": 86,
+      "p50ms": 119,
+      "p90ms": 135,
+      "p99ms": 155,
+      "non2xx": 0,
+      "errors": 0
+    }
+  ]
+}
